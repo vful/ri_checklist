@@ -1,0 +1,51 @@
+import { createApp } from 'vue'
+import App from './App.vue'
+import router from './router'
+import store from './store'
+import { getFirestore } from 'firebase/firestore'
+
+// FontAwesomeの利用 ここから
+import { library } from '@fortawesome/fontawesome-svg-core'
+import { fas } from '@fortawesome/free-solid-svg-icons'
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
+library.add(fas)
+// FontAwesomeの利用 ここまで
+
+// 日本語化対応 ここから
+import { createI18n } from 'vue-i18n'
+import ja from './lib/lang/ja.json'
+const i18n = new createI18n({
+    locale: 'ja',
+    messages: { ja }
+})
+// 日本語化対応 ここまで
+
+// ----------------------------------------------------------------------------------------
+// ここから下のサンプルコードを削除し、Firebaseで発行されたSDKのソースコードを貼り付けてください
+// ----------------------------------------------------------------------------------------
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "***************************************",
+  authDomain: "***********.firebaseapp.com",
+  projectId: "***********",
+  storageBucket: "***********.appspot.com",
+  messagingSenderId: "************",
+  appId: "1:************:web:*****************"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+// ----------------------------------------------------------------------------------------
+// ここから上のサンプルコードを削除し、Firebaseで発行されたSDKのソースコードを貼り付けてください
+// ----------------------------------------------------------------------------------------
+export const db = getFirestore(app);
+
+const app2 = createApp(App).use(i18n).use(store).use(router).component('fa', FontAwesomeIcon );
+app2.mount('#app')
+
+

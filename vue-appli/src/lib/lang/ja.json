@@ -1,0 +1,18 @@
+{
+  "auth/cancelled-popup-request": "",
+  "auth/popup-closed-by-user": "",
+  "auth/email-already-in-use": "このメールアドレスは既に使用されています",
+  "auth/invalid-email": "メールアドレスの形式が正しくありません",
+  "auth/user-disabled": "サービスの利用が停止されています",
+  "auth/user-not-found": "メールアドレスまたはパスワードが違います",
+  "auth/user-mismatch": "メールアドレスまたはパスワードが違います",
+  "auth/weak-password": "パスワードは6文字以上にしてください",
+  "auth/wrong-password": "メールアドレスまたはパスワードが違います",
+  "auth/popup-blocked": "認証ポップアップがブロックされました。ポップアップブロックをご利用の場合は設定を解除してください",
+  "auth/operation-not-supported-in-this-environment": "現在この認証方法はご利用頂けません",
+  "auth/auth-domain-config-required": "現在この認証方法はご利用頂けません",
+  "auth/operation-not-allowed": "現在この認証方法はご利用頂けません",
+  "auth/unauthorized-domain": "現在この認証方法はご利用頂けません",
+  "auth/requires-recent-login": "認証の有効期限が切れています",
+  "auth/too-many-requests": "連続してログインに失敗したためロックがかかりました。時間を空けてから再度ログインを試みてください"
+}
