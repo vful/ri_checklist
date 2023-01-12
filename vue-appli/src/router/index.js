@@ -9,6 +9,11 @@ const routes = [
     component: HomeView
   },
   {
+    path: '/:catchAll(.*)',
+    name: '404',
+    component: () => import( '../views/404NotFoundView.vue')
+  },
+  {
     path: '/login',
     name: 'login',
     beforeEnter: (to, from, next) => {
@@ -51,7 +56,7 @@ const routes = [
     component: () => import( '../views/DashboardView.vue')
   },
   {
-    path: '/checklist',
+    path: '/checklist/:id',
     name: 'checklist',
     beforeEnter: (to, from, next) => {
       store.dispatch('isSignedIn')
