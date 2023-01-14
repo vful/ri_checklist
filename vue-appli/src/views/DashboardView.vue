@@ -101,7 +101,6 @@
     },
     methods: {
       createChecklist: async function(){
-
         // Add a new document with a generated id.
         const docRef = await addDoc(collection(db, "checklists"), {
           title: this.title,
