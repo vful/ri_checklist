@@ -8,7 +8,7 @@
               <button class="drag-trigger button mr-3" v-if="dragFlag"><fa icon="bars" /></button>
               <div class="">
                 <label class="mr-2 is-size-5" style="cursor:pointer;"  v-if="!dragFlag">
-                  <input type="checkbox" :checked="node.$checked" @change="tree.toggleCheck(node, path)" />
+                  <input type="checkbox" :checked="node.$checked" @change="toggleCheck(tree, node, path)" />
                 </label>
                 <b style="display:none;">{{index}}</b>
                 <button class="button is-text" @click="statusPopup">{{node.text}}</button>
@@ -145,7 +145,8 @@
             depth: doc.data().depth,
             order: doc.data().order,
             checklist: this.checklist_id,
-            status: Boolean(doc.data().order.status),
+            $checked: Boolean(doc.data().$checked),
+            status: Boolean(doc.data().status),
           };
           data.push(node);
         })
@@ -164,7 +165,8 @@
     watch: {
       addPopup: function(){
           this.text = ""  
-      }
+      },
+
     },
     methods: {
       /* 
@@ -178,6 +180,7 @@
             depth: depth,
             order: nodelist.length,
             checklist: this.checklist_id,
+            $checked: Boolean(data[i].$checked),
             status: Boolean(data[i].$checked),
           };
           nodelist.push(node);
@@ -193,15 +196,18 @@
       createTree: function(data){
         const treelist = [];
         for(let i = 0; i < data.length; i ++){
+          console.log(data[i]);
           const node = {
             id: data[i].id, 
             text: data[i].text + "",
             depth: data[i].depth,
             order: data[i].order,
             children: [],
-            $checked: false,
+            $checked: Boolean(data[i].$checked),
+            status: Boolean(data[i].$checked),
             checklist: this.checklist_id,
           }
+          // console.log(node);
 
           let parent = treelist;
           for(let j = 1; j < data[i].depth; j ++){
@@ -210,6 +216,34 @@
           parent.push(node);
         }
         return treelist;
+      },
+      toggleCheck: async function(tree, node, path){
+        tree.toggleCheck(node, path);
+        
+        const data = this.recursiveCreateNode(this.treeData);
+        try {
+          await runTransaction(db, async (transaction) => {
+            for(let i = 0; i < data.length; i++){
+              // Object同士の比較が難しいのでJSONに変換して比較
+              // 参考URL: https://www.deep-rain.com/programming/javascript/755
+              if(JSON.stringify(Object.entries(this.nodeData[i]).sort()) != JSON.stringify(Object.entries(data[i]).sort())){
+                const docRef = doc(db, "tasks", data[i].id);
+                transaction.update(docRef, {'status': data[i].status, '$checked': data[i].$checked});
+              }
+            }
+          });
+          console.log('Transaction success!');
+          
+          this.nodeData = this.recursiveCreateNode(this.treeData);
+          
+        } catch (error) {
+          console.log('Transaction failure!');
+          console.log(error);
+          const errorCode = error.code;
+          const errorMessage = error.message;
+          console.log(errorCode);
+          console.log(errorMessage);
+        }
       },
       statusPopup: function(){
       },
@@ -297,6 +331,7 @@
             order: data.length,
             children: [],
             $checked: false,
+            status: false,
             checklist: this.checklist_id,
         };
         // firestore上に追加
