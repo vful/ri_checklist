@@ -4,11 +4,10 @@
     <Tree :value="treeData" triggerClass="drag-trigger">
         <template v-slot="{node, index, path, tree}">
           <div class="level" v-bind:style="{ 'opacity': (node.$checked) ? .4 : 1 }">
-            {{  }}
             <div class="level-left">
               <button class="drag-trigger button mr-3" v-if="dragFlag"><fa icon="bars" /></button>
               <div class="">
-                <label class="mr-2 is-size-5" style="cursor:pointer;">
+                <label class="mr-2 is-size-5" style="cursor:pointer;"  v-if="!dragFlag">
                   <input type="checkbox" :checked="node.$checked" @change="tree.toggleCheck(node, path)" />
                 </label>
                 <b style="display:none;">{{index}}</b>
@@ -32,12 +31,12 @@
       <button class="button is-primary ml-2" @click="addTaskPopup">新しく項目を追加する</button>
     </div>
 
-    <div class="modal is-active" v-if="taskPopup">
-      <div class="modal-background" @click="taskPopup=false"></div>
+    <div class="modal is-active" v-if="addPopup">
+      <div class="modal-background" @click="addPopup=false"></div>
       <div class="modal-card">
         <header class="modal-card-head">
           <p class="modal-card-title is-size-6">新規タスク作成</p>
-          <button class="delete" aria-label="close" @click="taskPopup=false"></button>
+          <button class="delete" aria-label="close" @click="addPopup=false"></button>
         </header>
         <section class="modal-card-body">
           <div class="content">
@@ -62,16 +61,16 @@
         </section>
         <footer class="modal-card-foot">
           <button class="button is-success" @click="addTask">作成する</button>
-          <button class="button" @click="taskPopup=false">キャンセル</button>
+          <button class="button" @click="addPopup=false">キャンセル</button>
         </footer>
       </div>
     </div>
     <div class="modal is-active" v-if="deletePopup">
-      <div class="modal-background" @click="taskPopup=false"></div>
+      <div class="modal-background" @click="addPopup=false"></div>
       <div class="modal-card">
         <header class="modal-card-head">
           <p class="modal-card-title is-size-6">タスク削除確認</p>
-          <button class="delete" aria-label="close" @click="taskPopup=false"></button>
+          <button class="delete" aria-label="close" @click="addPopup=false"></button>
         </header>
         <section class="modal-card-body">
           <div class="content">
@@ -119,7 +118,7 @@
         treeData: [],
         nodeData: [],
         dragFlag: false,
-        taskPopup: false,
+        addPopup: false,
         deletePopup: false,
         deleteId: '',
         deleteTaskName: '',
@@ -128,12 +127,15 @@
     },
     created: async function () {
       const docSnap = await getDoc(doc(db, "checklists", this.checklist_id));
+
+      // チェックリストが存在しない場合はエラーページへ
       if (docSnap.exists()) {
           this.checklist = {...docSnap.data()};
       } else {
           this.$router.push('/error');
       }
 
+      // firestoreからタスク一覧データを取得
       getDocs(query(collection(db, "tasks"), where("checklist", "==", this.checklist_id))).then(querySnapshot => {
         const data = [];
         querySnapshot.forEach(doc => {
@@ -156,14 +158,18 @@
         });
         // treeの作成
         this.treeData = this.createTree(data);
+        this.nodeData = this.recursiveCreateNode(this.treeData);
       })
     },
     watch: {
-      taskPopup: function(){
+      addPopup: function(){
           this.text = ""  
       }
     },
     methods: {
+      /* 
+       * ツリーデータ→配列データへの変換処理
+       */
       recursiveCreateNode: function(data, nodelist = [], depth = 1){
         for(let i = 0; i < data.length; i ++){
           const node = {
@@ -181,6 +187,9 @@
         }
         return nodelist;
       },
+      /* 
+       * 配列データ→ツリー生成の変換処理
+       */
       createTree: function(data){
         const treelist = [];
         for(let i = 0; i < data.length; i ++){
@@ -204,11 +213,17 @@
       },
       statusPopup: function(){
       },
+      /*
+       * タスク削除用ポップアップ表示処理
+       */
       deleteTaskPopup:function(id, text){
         this.deleteTaskName = text
         this.deleteId= id
         this.deletePopup = true
       },
+      /*
+       * タスク削除処理
+       */
       deleteTask: async function(){
         const data = this.recursiveCreateNode(this.treeData);
         for(let i = 0; i < data.length; i++){
@@ -249,6 +264,7 @@
               }
               // treeの再生成
               this.treeData = this.createTree(data);
+              this.nodeData = this.recursiveCreateNode(this.treeData);
             } catch (error) {
               console.log('Transaction failure!');
               console.log(error);
@@ -264,9 +280,15 @@
         // ポップアップ非表示
         this.deletePopup = false;
       },
+      /*
+       * タスク追加用ポップアップ表示処理
+       */
       addTaskPopup: function(){
-        this.taskPopup = true
+        this.addPopup = true
       },
+      /*
+       * タスク追加処理
+       */
       addTask: async function(){
         const data = this.recursiveCreateNode(this.treeData);
         const node = {
@@ -285,21 +307,33 @@
         data.push(node);
         // treeの再生成
         this.treeData = this.createTree(data);
+        this.nodeData = this.recursiveCreateNode(this.treeData);
         // ポップアップ非表示
         this.text = '';
-        this.taskPopup = false;
+        this.addPopup = false;
       },
+      /*
+       * 並び替え保存処理
+       */
       updateOrder: async function(){
         const data = this.recursiveCreateNode(this.treeData);
-
         try {
           await runTransaction(db, async (transaction) => {
             for(let i = 0; i < data.length; i++){
-              const docRef = doc(db, "tasks", data[i].id);
-              transaction.update(docRef, {'order': data[i].order, 'depth': data[i].depth});
+              // Object同士の比較が難しいのでJSONに変換して比較
+              // 参考URL: https://www.deep-rain.com/programming/javascript/755
+              if(JSON.stringify(Object.entries(this.nodeData[i]).sort()) != JSON.stringify(Object.entries(data[i]).sort())){
+                const docRef = doc(db, "tasks", data[i].id);
+                transaction.update(docRef, {'order': data[i].order, 'depth': data[i].depth});
+              }
             }
           });
           console.log('Transaction success!');
+          
+          // treeの再生成
+          this.treeData = this.createTree(data);
+          this.nodeData = this.recursiveCreateNode(this.treeData);
+          
         } catch (error) {
           console.log('Transaction failure!');
           console.log(error);
@@ -308,7 +342,6 @@
           console.log(errorCode);
           console.log(errorMessage);
         }
-
         this.dragFlag = false;
       }
     }
