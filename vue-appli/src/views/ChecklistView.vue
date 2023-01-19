@@ -16,7 +16,8 @@
               </div>
             </div>
             <div class="level-right">
-              <button class="button level-right" @click="editTaskPopup(node.id, node.text)">項目名編集</button>
+              <span>{{statuses[node.status]}}</span>
+              <button class="button level-right ml-1" @click="editTaskPopup(node.id, node.text, node.status)">編集</button>
               <button class="button is-danger level-right ml-1" @click="deleteTaskPopup(node.id, node.text)">削除</button>
             </div>
           </div>
@@ -48,10 +49,7 @@
               <div class="field-body">
                 <div class="field">
                   <p class="control is-expanded">
-                    <input class="input" type="text" placeholder="タスク名" v-model="text">
-                    <span class="icon is-small is-left">
-                      <i class="fas fa-user"></i>
-                    </span>
+                    <input class="input" type="text" placeholder="タスク名" v-model="addTaskName">
                   </p>
                 </div>
               </div>
@@ -106,11 +104,26 @@
                 <div class="field">
                   <p class="control is-expanded">
                     <input class="input" type="text" placeholder="タスク名" v-model="editTaskName">
-                    <span class="icon is-small is-left">
-                      <i class="fas fa-user"></i>
-                    </span>
                   </p>
                 </div>
+                
+              </div>
+            </div>
+            <div class="field is-horizontal">
+              <div class="field-label is-normal">
+                <label class="label">ステータス</label>
+              </div>
+              <div class="field-body">
+                <div class="field">
+                  <div class="select">
+                    <select v-model="editStatus">
+                      <option v-for="(status, index) in statuses" v-bind:value="index" v-bind:key="index">
+                        {{ status }}
+                      </option>
+                    </select>
+                  </div>
+                </div>
+                
               </div>
             </div>
 
@@ -146,19 +159,26 @@
     components: {Tree: Tree.mixPlugins([Check, Draggable])},
     data(){
       return {
-        text: '',
         checklist_id: this.$route.params.id,
         checklist: {'title': ""},
         treeData: [],
         nodeData: [],
         dragFlag: false,
         addPopup: false,
+        addTaskName: '',
         deletePopup: false,
         deleteId: '',
         deleteTaskName: '',
         editPopup: false,
         editId: '',
         editTaskName: '',
+        editStatus: '',
+        statuses: [
+          '未着手',
+          '実施中',
+          '完了',
+        ],
+
 
       }
     },
@@ -183,7 +203,7 @@
             order: doc.data().order,
             checklist: this.checklist_id,
             $checked: Boolean(doc.data().$checked),
-            status: Boolean(doc.data().status),
+            status: doc.data().status,
           };
           data.push(node);
         })
@@ -201,7 +221,20 @@
     },
     watch: {
       addPopup: function(){
-          this.text = ""  
+        this.addTaskName = ""  
+      },
+      deletePopup: function(value){
+        if(!value){
+          this.deleteId = ''
+          this.deleteTaskName = ''
+        }
+      },
+      editPopup: function(value){
+        if(!value){
+          this.editId = ''
+          this.editTaskName = ''
+          this.editStatus = ''
+        }
       },
 
     },
@@ -218,7 +251,7 @@
             order: nodelist.length,
             checklist: this.checklist_id,
             $checked: Boolean(data[i].$checked),
-            status: Boolean(data[i].$checked),
+            status: data[i].status,
           };
           nodelist.push(node);
           if('children' in data[i]){
@@ -241,7 +274,7 @@
             order: data[i].order,
             children: [],
             $checked: Boolean(data[i].$checked),
-            status: Boolean(data[i].$checked),
+            status: data[i].status,
             checklist: this.checklist_id,
           }
           // console.log(node);
@@ -363,12 +396,12 @@
       addTask: async function(){
         const data = this.recursiveCreateNode(this.treeData);
         const node = {
-            text: this.text,
+            text: this.addTaskName,
             depth: 1,
             order: data.length,
             children: [],
             $checked: false,
-            status: false,
+            status: 0,
             checklist: this.checklist_id,
         };
         // firestore上に追加
@@ -381,27 +414,35 @@
         this.treeData = this.createTree(data);
         this.nodeData = this.recursiveCreateNode(this.treeData);
         // ポップアップ非表示
-        this.text = '';
         this.addPopup = false;
       },
       /*
        * タスク更新用ポップアップ表示処理
        */
-       editTaskPopup:function(id, text){
-        this.editTaskName = text
-        this.editId= id
+       editTaskPopup:function(id, text, status){
         this.editPopup = true
+        this.editTaskName = text
+        this.editId = id
+        this.editStatus = status
       },
+      /*
+       * タスク更新処理
+       */
       editTask: async function(){
+        console.log(this.editStatus)
         const docRef = doc(db, "tasks", this.editId);
         await updateDoc(docRef, {
-          text: this.editTaskName
+          text: this.editTaskName,
+          status: this.editStatus,
+          $checked: (this.editStatus == 2) ? true : false,
         });
 
         const data = this.recursiveCreateNode(this.treeData);
         for(let i = 0; i < data.length; i ++){
           if(data[i].id === this.editId){
             data[i].text = this.editTaskName;
+            data[i].status = this.editStatus;
+            data[i].$checked = (this.editStatus == 2) ? true : false,
 
             // ループを抜けるためにiを上書き
             i = data.length;
@@ -413,8 +454,6 @@
         this.nodeData = this.recursiveCreateNode(this.treeData);
 
         // ポップアップ非表示
-        this.editTaskName = '';
-        this.editId = '';
         this.editPopup = false;
       },
       /*
