@@ -8,7 +8,7 @@
               <button class="drag-trigger button mr-3" v-if="dragFlag"><fa icon="bars" /></button>
               <div class="">
                 <label class="mr-2 is-size-5" style="cursor:pointer;"  v-if="!dragFlag">
-                  <input type="checkbox" :checked="node.$checked" @change="toggleCheck(tree, node, path)" />
+                  <input type="checkbox" :checked="node.$checked" @change="toggleCheck(tree, node, path)" v-bind:disabled="node.children.length" />
                 </label>
                 <b style="display:none;">{{index}}</b>
                 <button class="button is-text" @click="statusPopup">{{node.text}}</button>
@@ -16,7 +16,7 @@
               </div>
             </div>
             <div class="level-right">
-              <button class="button level-right" @click="statusPopup">項目名編集</button>
+              <button class="button level-right" @click="editTaskPopup(node.id, node.text)">項目名編集</button>
               <button class="button is-danger level-right ml-1" @click="deleteTaskPopup(node.id, node.text)">削除</button>
             </div>
           </div>
@@ -66,11 +66,11 @@
       </div>
     </div>
     <div class="modal is-active" v-if="deletePopup">
-      <div class="modal-background" @click="addPopup=false"></div>
+      <div class="modal-background" @click="deletePopup=false"></div>
       <div class="modal-card">
         <header class="modal-card-head">
           <p class="modal-card-title is-size-6">タスク削除確認</p>
-          <button class="delete" aria-label="close" @click="addPopup=false"></button>
+          <button class="delete" aria-label="close" @click="deletePopup=false"></button>
         </header>
         <section class="modal-card-body">
           <div class="content">
@@ -85,6 +85,40 @@
         <footer class="modal-card-foot">
           <button class="button is-danger" @click="deleteTask">削除する</button>
           <button class="button" @click="deletePopup=false">キャンセル</button>
+        </footer>
+      </div>
+    </div>
+    <div class="modal is-active" v-if="editPopup">
+      <div class="modal-background" @click="editPopup=false"></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title is-size-6">タスク編集</p>
+          <button class="delete" aria-label="close" @click="editPopup=false"></button>
+        </header>
+        <section class="modal-card-body">
+          <div class="content">
+            
+            <div class="field is-horizontal">
+              <div class="field-label is-normal">
+                <label class="label">タスク名</label>
+              </div>
+              <div class="field-body">
+                <div class="field">
+                  <p class="control is-expanded">
+                    <input class="input" type="text" placeholder="タスク名" v-model="editTaskName">
+                    <span class="icon is-small is-left">
+                      <i class="fas fa-user"></i>
+                    </span>
+                  </p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+        <footer class="modal-card-foot">
+          <button class="button is-primary" @click="editTask">編集する</button>
+          <button class="button" @click="editPopup=false">キャンセル</button>
         </footer>
       </div>
     </div>
@@ -105,7 +139,7 @@
   } from 'he-tree-vue'
   import 'he-tree-vue/dist/he-tree-vue.css' // base style
   import { db } from "../main";
-  import { doc, addDoc, getDoc, getDocs, query, collection, where, runTransaction} from "firebase/firestore";
+  import { doc, addDoc, updateDoc, getDoc, getDocs, query, collection, where, runTransaction} from "firebase/firestore";
   // import { addDoc, collection} from "firebase/firestore";
 
   export default {
@@ -122,6 +156,9 @@
         deletePopup: false,
         deleteId: '',
         deleteTaskName: '',
+        editPopup: false,
+        editId: '',
+        editTaskName: '',
 
       }
     },
@@ -196,7 +233,7 @@
       createTree: function(data){
         const treelist = [];
         for(let i = 0; i < data.length; i ++){
-          console.log(data[i]);
+          // console.log(data[i]);
           const node = {
             id: data[i].id, 
             text: data[i].text + "",
@@ -346,6 +383,39 @@
         // ポップアップ非表示
         this.text = '';
         this.addPopup = false;
+      },
+      /*
+       * タスク更新用ポップアップ表示処理
+       */
+       editTaskPopup:function(id, text){
+        this.editTaskName = text
+        this.editId= id
+        this.editPopup = true
+      },
+      editTask: async function(){
+        const docRef = doc(db, "tasks", this.editId);
+        await updateDoc(docRef, {
+          text: this.editTaskName
+        });
+
+        const data = this.recursiveCreateNode(this.treeData);
+        for(let i = 0; i < data.length; i ++){
+          if(data[i].id === this.editId){
+            data[i].text = this.editTaskName;
+
+            // ループを抜けるためにiを上書き
+            i = data.length;
+          }
+        }
+
+        // treeの再生成
+        this.treeData = this.createTree(data);
+        this.nodeData = this.recursiveCreateNode(this.treeData);
+
+        // ポップアップ非表示
+        this.editTaskName = '';
+        this.editId = '';
+        this.editPopup = false;
       },
       /*
        * 並び替え保存処理
