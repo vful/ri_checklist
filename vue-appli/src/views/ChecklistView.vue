@@ -1,13 +1,23 @@
 <template>
   <div class="checklist">
     <h1 class="title">{{ checklist.title }}</h1>
+    <div class="level">
+      <div class="level-left"></div>
+      <div class="level-right">
+        <p>管理モード：</p>
+        <label class="radio"><input type="radio" v-model="mode" value="toggle">チェックリスト</label>
+        <label class="radio"><input type="radio" v-model="mode" value="status">タスク</label>
+      </div>
+    </div>
+
     <Tree :value="treeData" triggerClass="drag-trigger">
         <template v-slot="{node, index, path, tree}">
           <div class="level" v-bind:style="{ 'opacity': (node.$checked) ? .4 : 1 }">
             <div class="level-left">
               <button class="drag-trigger button mr-3" v-if="dragFlag"><fa icon="bars" /></button>
               <div class="">
-                <label class="mr-2 is-size-5" style="cursor:pointer;"  v-if="!dragFlag">
+                <!-- <label class="mr-2 is-size-5" style="cursor:pointer;"  v-if="!dragFlag && mode=='toggle'"> -->
+                <label class="mr-2 is-size-5" style="cursor:pointer;">
                   <input type="checkbox" :checked="node.$checked" @change="toggleCheck(tree, node, path)" v-bind:disabled="node.children.length" />
                 </label>
                 <b style="display:none;">{{index}}</b>
@@ -16,7 +26,13 @@
               </div>
             </div>
             <div class="level-right">
-              <span>{{statuses[node.status]}}</span>
+              <div v-if="mode == 'status'" class="select">
+                <select v-model="node.status" @change="editTaskStatus(tree, node, path)" v-bind:disabled="node.children.length">
+                  <option v-for="(status, index) in statuses" v-bind:value="index" v-bind:key="index" :checked="index == node.status">
+                    {{ status }}
+                  </option>
+                </select>
+              </div>
               <button class="button level-right ml-1" @click="editTaskPopup(node.id, node.text, node.status)">編集</button>
               <button class="button is-danger level-right ml-1" @click="deleteTaskPopup(node.id, node.text)">削除</button>
             </div>
@@ -109,7 +125,7 @@
                 
               </div>
             </div>
-            <div class="field is-horizontal">
+            <!-- <div class="field is-horizontal" v-if="mode == 'status'">
               <div class="field-label is-normal">
                 <label class="label">ステータス</label>
               </div>
@@ -125,7 +141,7 @@
                 </div>
                 
               </div>
-            </div>
+            </div> -->
 
           </div>
         </section>
@@ -163,6 +179,7 @@
         checklist: {'title': ""},
         treeData: [],
         nodeData: [],
+        mode: 'toggle',
         dragFlag: false,
         addPopup: false,
         addTaskName: '',
@@ -178,8 +195,6 @@
           '実施中',
           '完了',
         ],
-
-
       }
     },
     created: async function () {
@@ -191,6 +206,9 @@
       } else {
           this.$router.push('/error');
       }
+
+      // チェックリストモード
+      this.mode = (this.checklist.mode === 'toggle') ? 'toggle' : 'status';
 
       // firestoreからタスク一覧データを取得
       getDocs(query(collection(db, "tasks"), where("checklist", "==", this.checklist_id))).then(querySnapshot => {
@@ -220,6 +238,14 @@
       })
     },
     watch: {
+      // チェックリスト管理 / タスク管理のフラグをDBの保存する
+      mode: async function(value){
+        const docRef = doc(db, "checklists", this.checklist_id);
+        await updateDoc(docRef, {
+          mode: value,
+        });
+        this.checklist.mode = value;
+      },
       addPopup: function(){
         this.addTaskName = ""  
       },
@@ -429,7 +455,6 @@
        * タスク更新処理
        */
       editTask: async function(){
-        console.log(this.editStatus)
         const docRef = doc(db, "tasks", this.editId);
         await updateDoc(docRef, {
           text: this.editTaskName,
@@ -455,6 +480,42 @@
 
         // ポップアップ非表示
         this.editPopup = false;
+      },
+      editTaskStatus: async function(tree, node, path){
+        if(node.status === 2) tree.check(node, path);
+        else tree.uncheck(node, path);
+
+        const data = this.recursiveCreateNode(this.treeData);
+        try {
+          await runTransaction(db, async (transaction) => {
+            for(let i = 0; i < data.length; i++){
+              // Object同士の比較が難しいのでJSONに変換して比較
+              // 参考URL: https://www.deep-rain.com/programming/javascript/755
+              if(JSON.stringify(Object.entries(this.nodeData[i]).sort()) != JSON.stringify(Object.entries(data[i]).sort())){
+                const docRef = doc(db, "tasks", data[i].id);
+                transaction.update(docRef, {'status': data[i].status, '$checked': data[i].$checked});
+              }
+            }
+          });
+          console.log('Transaction success!');
+          
+          this.nodeData = this.recursiveCreateNode(this.treeData);
+          
+        } catch (error) {
+          console.log('Transaction failure!');
+          console.log(error);
+          const errorCode = error.code;
+          const errorMessage = error.message;
+          console.log(errorCode);
+          console.log(errorMessage);
+        }
+        // const docRef = doc(db, "tasks", node.id);
+        // await updateDoc(docRef, {
+        //   status: node.status,
+
+        // });
+
+        // this.nodeData = this.recursiveCreateNode(this.treeData);
       },
       /*
        * 並び替え保存処理
