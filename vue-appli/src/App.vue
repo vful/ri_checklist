@@ -109,6 +109,7 @@
 
 <script>
 import 'bulma/css/bulma.css'; 
+import 'bulma-checkradio/dist/css/bulma-checkradio.min.css'; 
 export default {
 
 };

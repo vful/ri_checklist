@@ -4,9 +4,13 @@
     <div class="level">
       <div class="level-left"></div>
       <div class="level-right">
-        <p>管理モード：</p>
-        <label class="radio"><input type="radio" v-model="mode" value="toggle">チェックリスト</label>
-        <label class="radio"><input type="radio" v-model="mode" value="status">タスク</label>
+        <div class="field">
+          <label>モード：</label>
+          <input class="is-checkradio" id="modeToggle" type="radio" v-model="mode" name="mode" value="toggle">
+          <label for="modeToggle">チェックリスト</label>
+          <input class="is-checkradio" id="modeStatus" type="radio" v-model="mode" name="mode" value="status">
+          <label for="modeStatus">タスク</label>
+        </div>
       </div>
     </div>
 
@@ -16,9 +20,10 @@
             <div class="level-left">
               <button class="drag-trigger button mr-3" v-if="dragFlag"><fa icon="bars" /></button>
               <div class="">
-                <!-- <label class="mr-2 is-size-5" style="cursor:pointer;"  v-if="!dragFlag && mode=='toggle'"> -->
-                <label class="mr-2 is-size-5" style="cursor:pointer;">
-                  <input type="checkbox" :checked="node.$checked" @change="toggleCheck(tree, node, path)" v-bind:disabled="node.children.length" />
+                <label class="mr-2 is-size-5" style="cursor:pointer;"  v-if="!dragFlag && mode=='toggle'">
+                <!-- <label class="mr-2 is-size-5" style="cursor:pointer;"> -->
+                  <input v-bind:class="{'is-checkradio':true, 'has-background-color':node.$checked, 'is-success':node.$checked}" type="checkbox" v-bind:id="node.id" :checked="node.$checked" @change="toggleCheck(tree, node, path)" v-bind:disabled="node.children.length" />
+                  <label v-bind:for="node.id"></label>
                 </label>
                 <b style="display:none;">{{index}}</b>
                 <button class="button is-text" @click="statusPopup">{{node.text}}</button>
