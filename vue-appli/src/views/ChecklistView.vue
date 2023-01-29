@@ -526,8 +526,9 @@
         tree.toggleCheck(node, path);
         // タスク管理モードのステータスを更新する
         node.status = (node.$checked) ? 2 : 0;
-        
-        const data = this.recursiveCreateNode(this.treeData);
+
+        let data = this.recursiveCreateNode(this.treeData);
+        data = this.statusConsistency(data);
         try {
           let transactionCount = 0;
           await runTransaction(db, async (transaction) => {
@@ -543,6 +544,8 @@
           });
           console.log(`Transaction success!(Count:${transactionCount})`);
           
+          // treeの作成
+          this.treeData = this.createTree(data);
           this.nodeData = this.recursiveCreateNode(this.treeData);
           
         } catch (error) {
