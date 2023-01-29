@@ -20,7 +20,12 @@
 
     <Tree :value="treeData" triggerClass="drag-trigger">
         <template v-slot="{node, index, path, tree}">
-          <div class="level node-level" v-bind:style="{ 'background-color': (node.$checked) ? '#eee' : '#fff' }">
+          <div class="level node-level"
+            v-bind:class="{
+              'is-completed': (node.$checked),
+              'is-current': (!node.$checked && node.start && node.start < now),
+              'is-danger': (!node.$checked && node.limit && node.limit < now)
+            }">
             <div class="level-left">
               <button class="drag-trigger button mr-3" v-if="dragFlag"><fa icon="bars" /></button>
               <div class="">
@@ -30,12 +35,17 @@
                   <label v-bind:for="node.id"></label>
                 </label>
                 <b style="display:none;">{{index}}</b>
-                <button class="button is-text" @click="statusPopup">{{node.text}}</button>
+                <!-- <button class="button is-text" @click="statusPopup">{{node.text}}</button> -->
+                {{node.text}}
                 <span style="display:none;">- path: <i>{{path.join(',')}}</i></span>
               </div>
             </div>
             <div class="level-right">
-              <small class="has-text-grey mr-1">{{ toDate(node.start) }}<span v-if="node.start || node.limit">〜</span>{{ toDate(node.limit) }}</small>
+              <small class="has-text-grey mr-1">
+                <span style="display:inline-block; text-align:right; width:11em;">{{ toDate(node.start) }}</span>
+                <span v-if="node.start || node.limit">〜</span>
+                <span style="display:inline-block; text-align:left; width:11em;">{{ toDate(node.limit) }}</span>
+              </small>
               <div v-if="mode == 'status'" class="select">
                 <select v-model="node.status" @change="editTaskStatus(tree, node, path)" v-bind:disabled="node.children.length">
                   <option v-for="(status, index) in statuses" v-bind:value="index" v-bind:key="index" :checked="index == node.status">
@@ -219,12 +229,32 @@
 
 <style>
   .node-level{
-    margin: -5px;
+    margin: -6px;
     padding:5px;
+    border:1px solid #ccc;
+  }
+  .node-level.is-completed{
+    background:#eee;
+    color: #999 !important;
+  }
+  .node-level.is-current{
+    background:#fffaeb;
+  }
+  .node-level.is-danger{
+    background:#feecf0;
+    color: #cc0f35;
+    border-color: #cc0f35;
   }
   .modal-card{ overflow: visible;}
   .modal-card-body{ overflow: visible;}
   .vc-day:has(>.vc-highlights){ pointer-events: none;}
+
+  /* チェックボックスの調整 */
+  .is-checkradio[type=checkbox]+label::before, .is-checkradio[type=checkbox]+label:before{ background:#fff}
+  .is-checkradio[type=checkbox][disabled]+label::after,
+  .is-checkradio[type=checkbox][disabled]+label::before,
+  .is-checkradio[type=checkbox][disabled]+label:after,
+  .is-checkradio[type=checkbox][disabled]+label:before{ background: #dbdbdb;}
 </style>
 
 <script>
@@ -245,6 +275,7 @@
     components: {Tree: Tree.mixPlugins([Check, Draggable])},
     data(){
       return {
+        now: new Date(),
         checklist_id: this.$route.params.id,
         checklist: {'title': ""},
         treeData: [],

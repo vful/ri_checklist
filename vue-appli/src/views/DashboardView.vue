@@ -1,6 +1,6 @@
 <template>
   <div class="dashboard">
-    <p class="text-right">アカウント名：{{ $store.getters.userInfo.name }}</p>
+    <h1 class="title mt-5">ダッシュボード</h1>
 
     <p>チェックリスト一覧</p>
     <table class="table">

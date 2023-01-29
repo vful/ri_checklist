@@ -17,7 +17,7 @@
               <span class="icon">
                 <fa icon="home" />
               </span>
-              <span>Home</span>
+              <span>ホーム</span>
             </span>
           </router-link>
           <router-link class="navbar-item has-text-link" :to="{ name: 'about'}">
@@ -25,7 +25,7 @@
               <span class="icon">
                 <fa icon="book" />
               </span>
-              <span>About</span>
+              <span>使い方</span>
             </span>
           </router-link>
           
@@ -35,7 +35,7 @@
                 <span class="icon">
                   <fa icon="right-to-bracket" />
                 </span>
-                <span>Login</span>
+                <span>ログイン</span>
               </span>
             </router-link>
           </template>
@@ -45,19 +45,32 @@
                 <span class="icon">
                   <fa icon="table-columns" />
                 </span>
-                <span>Dashboard</span>
-              </span>
-            </router-link>
-            <router-link class="navbar-item has-text-link" :to="{ name: 'logout'}">
-              <span class="icon-text">
-                <span class="icon">
-                  <fa icon="right-from-bracket" />
-                </span>
-                <span>Logout</span>
+                <span>ダッシュボード</span>
               </span>
             </router-link>
           </template>
+
         </div>
+
+        <template v-if="$store.getters.userInfo != null">
+          <!-- ドロップダウンの配置 -->
+          <div class="navbar-item has-dropdown is-hoverable">
+            <a class="navbar-link">
+              {{ $store.getters.userInfo.name }}さん
+            </a>
+    
+            <div class="navbar-dropdown">
+              <router-link class="navbar-item has-text-link" :to="{ name: 'logout'}">
+                <span class="icon-text" style="flex-wrap:nowrap;">
+                  <span class="icon">
+                    <fa icon="right-from-bracket" />
+                  </span>
+                  <span>ログアウト</span>
+                </span>
+              </router-link>
+            </div>
+          </div>
+        </template>
       </div>
     </nav>
   </header>

@@ -111,6 +111,7 @@ export default createStore({
         const auth = getAuth();
         signOut(auth).then(() => {
             commit('setUser', null);
+            commit('setUserInfo', null);
             resolve();
         }).catch((error) => {
             const errorCode = error.code;
