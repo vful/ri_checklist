@@ -14,15 +14,18 @@
       </div>
     </div>
 
+    <p style="text-indent:-1em; padding-left:1em;">・子タスクが存在するタスクのステータスを直接変更することはできません。<br>
+      親タスクを完了させるには、子タスクを全て「完了」にしてください。</p>
+
     <Tree :value="treeData" triggerClass="drag-trigger">
         <template v-slot="{node, index, path, tree}">
-          <div class="level" v-bind:style="{ 'opacity': (node.$checked) ? .4 : 1 }">
+          <div class="level node-level" v-bind:style="{ 'background-color': (node.$checked) ? '#eee' : '#fff' }">
             <div class="level-left">
               <button class="drag-trigger button mr-3" v-if="dragFlag"><fa icon="bars" /></button>
               <div class="">
                 <label class="mr-2 is-size-5" style="cursor:pointer;"  v-if="!dragFlag && mode=='toggle'">
                 <!-- <label class="mr-2 is-size-5" style="cursor:pointer;"> -->
-                  <input v-bind:class="{'is-checkradio':true, 'has-background-color':node.$checked, 'is-success':node.$checked}" type="checkbox" v-bind:id="node.id" :checked="node.$checked" @change="toggleCheck(tree, node, path)" v-bind:disabled="node.children.length" />
+                  <input v-bind:class="{'is-checkradio':true, 'has-background-color':node.$checked, 'is-success':node.$checked}" type="checkbox" v-bind:id="node.id" :checked="node.$checked" @change="editCheckbox(tree, node, path)" v-bind:disabled="node.children.length" />
                   <label v-bind:for="node.id"></label>
                 </label>
                 <b style="display:none;">{{index}}</b>
@@ -160,6 +163,13 @@
 
   </div>
 </template>
+
+<style>
+  .node-level{
+    margin: -5px;
+    padding:5px;
+  }
+</style>
 
 <script>
   import {
@@ -318,33 +328,54 @@
         }
         return treelist;
       },
-      toggleCheck: async function(tree, node, path){
-        tree.toggleCheck(node, path);
-        
-        const data = this.recursiveCreateNode(this.treeData);
-        try {
-          await runTransaction(db, async (transaction) => {
-            for(let i = 0; i < data.length; i++){
-              // Object同士の比較が難しいのでJSONに変換して比較
-              // 参考URL: https://www.deep-rain.com/programming/javascript/755
-              if(JSON.stringify(Object.entries(this.nodeData[i]).sort()) != JSON.stringify(Object.entries(data[i]).sort())){
-                const docRef = doc(db, "tasks", data[i].id);
-                transaction.update(docRef, {'status': data[i].status, '$checked': data[i].$checked});
-              }
-            }
-          });
-          console.log('Transaction success!');
-          
-          this.nodeData = this.recursiveCreateNode(this.treeData);
-          
-        } catch (error) {
-          console.log('Transaction failure!');
-          console.log(error);
-          const errorCode = error.code;
-          const errorMessage = error.message;
-          console.log(errorCode);
-          console.log(errorMessage);
+      /*
+       * ステータスに整合性を持たせる
+       */
+      statusConsistency: function(data){
+        let max_depth = 0;
+        for(let i = data.length-1; 0 <= i; i--){
+          if(max_depth < data[i].depth) max_depth = data[i].depth;
         }
+
+        while(0 < max_depth){
+          let total = 0;
+          let count = 0;
+          for(let i = data.length-1; 0 <= i; i--){
+            if(data[i].depth == max_depth){
+              count ++;
+              total += data[i].status;
+            }
+            else if(data[i].depth > max_depth){
+              continue;
+            }
+            else{
+              let parent = 0;
+              for(let j = i; 0 <= j; j--){
+                if(max_depth - 1  ==  data[j].depth){
+                  parent = j;
+                  break;
+                }
+              }
+              if(count && data[parent].depth < max_depth){
+                if(total == 0){ // 未着手
+                  data[parent].status = 0;
+                  data[parent].$checked = false;
+                }
+                else if(total / 2 == count && total % 2 == 0){ // 完了
+                  data[parent].status = 2;
+                  data[parent].$checked = true;
+                }
+                else{ // 実施中
+                  data[parent].status = 1;
+                  data[parent].$checked = false;
+                }
+              }
+              count = total = 0;
+            }
+          }
+          max_depth --;
+        }
+        return data;
       },
       statusPopup: function(){
       },
@@ -382,13 +413,15 @@
             }
             try {
               // Firestore上からデータを削除
+              let transactionCount = 0;
               await runTransaction(db, async (transaction) => {
                 for(let j = 0; j < deleteNode.length; j++){
                   const docRef = doc(db, "tasks", deleteNode[j].id);
                   transaction.delete(docRef);
+                  transactionCount ++;
                 }
               });
-              console.log('Transaction success!');
+              console.log(`Transaction success!(Count:${transactionCount})`);
 
               // 配列上のデータを削除
               data.splice(i, deleteNode.length);
@@ -450,7 +483,7 @@
       /*
        * タスク更新用ポップアップ表示処理
        */
-       editTaskPopup:function(id, text, status){
+      editTaskPopup:function(id, text, status){
         this.editPopup = true
         this.editTaskName = text
         this.editId = id
@@ -486,12 +519,17 @@
         // ポップアップ非表示
         this.editPopup = false;
       },
-      editTaskStatus: async function(tree, node, path){
-        if(node.status === 2) tree.check(node, path);
-        else tree.uncheck(node, path);
-
+      /*
+       * チェックリストモードのチェック更新処理
+       */
+      editCheckbox: async function(tree, node, path){
+        tree.toggleCheck(node, path);
+        // タスク管理モードのステータスを更新する
+        node.status = (node.$checked) ? 2 : 0;
+        
         const data = this.recursiveCreateNode(this.treeData);
         try {
+          let transactionCount = 0;
           await runTransaction(db, async (transaction) => {
             for(let i = 0; i < data.length; i++){
               // Object同士の比較が難しいのでJSONに変換して比較
@@ -499,10 +537,11 @@
               if(JSON.stringify(Object.entries(this.nodeData[i]).sort()) != JSON.stringify(Object.entries(data[i]).sort())){
                 const docRef = doc(db, "tasks", data[i].id);
                 transaction.update(docRef, {'status': data[i].status, '$checked': data[i].$checked});
+                transactionCount ++;
               }
             }
           });
-          console.log('Transaction success!');
+          console.log(`Transaction success!(Count:${transactionCount})`);
           
           this.nodeData = this.recursiveCreateNode(this.treeData);
           
@@ -514,20 +553,55 @@
           console.log(errorCode);
           console.log(errorMessage);
         }
-        // const docRef = doc(db, "tasks", node.id);
-        // await updateDoc(docRef, {
-        //   status: node.status,
+      },
+      /*
+       * タスクモードのステータス更新処理
+       */
+      editTaskStatus: async function(tree, node, path){
+        if(node.status === 2) tree.check(node, path);
+        else tree.uncheck(node, path);
 
-        // });
-
-        // this.nodeData = this.recursiveCreateNode(this.treeData);
+        let data = this.recursiveCreateNode(this.treeData);
+        data = this.statusConsistency(data);
+        
+        try {
+          let transactionCount = 0;
+          // 一時的にコメントアウト、開発おわったらイキに
+          await runTransaction(db, async (transaction) => {
+            for(let i = 0; i < data.length; i++){
+              // Object同士の比較が難しいのでJSONに変換して比較
+              // 参考URL: https://www.deep-rain.com/programming/javascript/755
+              if(JSON.stringify(Object.entries(this.nodeData[i]).sort()) != JSON.stringify(Object.entries(data[i]).sort())){
+                const docRef = doc(db, "tasks", data[i].id);
+                transaction.update(docRef, {'status': data[i].status, '$checked': data[i].$checked});
+                transactionCount ++;
+              }
+            }
+          });
+          console.log(`Transaction success!(Count:${transactionCount})`);
+          
+          // treeの作成
+          this.treeData = this.createTree(data);
+          this.nodeData = this.recursiveCreateNode(this.treeData);
+          
+        } catch (error) {
+          console.log('Transaction failure!');
+          console.log(error);
+          const errorCode = error.code;
+          const errorMessage = error.message;
+          console.log(errorCode);
+          console.log(errorMessage);
+        }
       },
       /*
        * 並び替え保存処理
        */
       updateOrder: async function(){
-        const data = this.recursiveCreateNode(this.treeData);
+        let data = this.recursiveCreateNode(this.treeData);
+        data = this.statusConsistency(data);
+
         try {
+          let transactionCount = 0;
           await runTransaction(db, async (transaction) => {
             for(let i = 0; i < data.length; i++){
               // Object同士の比較が難しいのでJSONに変換して比較
@@ -535,10 +609,12 @@
               if(JSON.stringify(Object.entries(this.nodeData[i]).sort()) != JSON.stringify(Object.entries(data[i]).sort())){
                 const docRef = doc(db, "tasks", data[i].id);
                 transaction.update(docRef, {'order': data[i].order, 'depth': data[i].depth});
+                transactionCount ++;
+                
               }
             }
           });
-          console.log('Transaction success!');
+          console.log(`Transaction success!(Count:${transactionCount})`);
           
           // treeの再生成
           this.treeData = this.createTree(data);
