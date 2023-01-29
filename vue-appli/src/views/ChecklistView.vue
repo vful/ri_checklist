@@ -1,6 +1,7 @@
 <template>
   <div class="checklist">
-    <h1 class="title">{{ checklist.title }}</h1>
+    <h1 class="title mt-5">{{ checklist.title }}</h1>
+    
     <div class="level">
       <div class="level-left"></div>
       <div class="level-right">
@@ -34,6 +35,7 @@
               </div>
             </div>
             <div class="level-right">
+              <small class="has-text-grey mr-1">{{ toDate(node.start) }}<span v-if="node.start || node.limit">〜</span>{{ toDate(node.limit) }}</small>
               <div v-if="mode == 'status'" class="select">
                 <select v-model="node.status" @change="editTaskStatus(tree, node, path)" v-bind:disabled="node.children.length">
                   <option v-for="(status, index) in statuses" v-bind:value="index" v-bind:key="index" :checked="index == node.status">
@@ -41,7 +43,7 @@
                   </option>
                 </select>
               </div>
-              <button class="button level-right ml-1" @click="editTaskPopup(node.id, node.text, node.status)">編集</button>
+              <button class="button level-right ml-1" @click="editTaskPopup(node.id, node.text, node.status, node.limit, node.start)">編集</button>
               <button class="button is-danger level-right ml-1" @click="deleteTaskPopup(node.id, node.text)">削除</button>
             </div>
           </div>
@@ -74,6 +76,40 @@
                 <div class="field">
                   <p class="control is-expanded">
                     <input class="input" type="text" placeholder="タスク名" v-model="addTaskName">
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="field is-horizontal">
+              <div class="field-label is-normal">
+                <label class="label">着手予定日</label>
+              </div>
+              <div class="field-body">
+                <div class="field">
+                  <p class="control is-expanded">
+                    <v-date-picker :formats="datepickerFormats" :popover="popover" v-model="addTaskStart">
+                      <template v-slot="{ inputValue, inputEvents }">
+                        <input class="input" type="text" :value="inputValue" v-on="inputEvents" placeholder="例：2023/01/10"  />
+                      </template>
+                    </v-date-picker>
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="field is-horizontal">
+              <div class="field-label is-normal">
+                <label class="label">期限</label>
+              </div>
+              <div class="field-body">
+                <div class="field">
+                  <p class="control is-expanded">
+                    <v-date-picker :formats="datepickerFormats" :popover="popover" v-model="addTaskLimit">
+                      <template v-slot="{ inputValue, inputEvents }">
+                        <input class="input" type="text" :value="inputValue" v-on="inputEvents" placeholder="例：2023/01/10"  />
+                      </template>
+                    </v-date-picker>
                   </p>
                 </div>
               </div>
@@ -133,24 +169,41 @@
                 
               </div>
             </div>
-            <!-- <div class="field is-horizontal" v-if="mode == 'status'">
+
+            <div class="field is-horizontal">
               <div class="field-label is-normal">
-                <label class="label">ステータス</label>
+                <label class="label">着手予定日</label>
               </div>
               <div class="field-body">
                 <div class="field">
-                  <div class="select">
-                    <select v-model="editStatus">
-                      <option v-for="(status, index) in statuses" v-bind:value="index" v-bind:key="index">
-                        {{ status }}
-                      </option>
-                    </select>
-                  </div>
+                  <p class="control is-expanded">
+                    <v-date-picker :formats="datepickerFormats" :popover="popover" v-model="editTaskStart">
+                      <template v-slot="{ inputValue, inputEvents }">
+                        <input class="input" type="text" :value="inputValue" v-on="inputEvents" placeholder="例：2023/01/10"  />
+                      </template>
+                    </v-date-picker>
+                  </p>
                 </div>
-                
               </div>
-            </div> -->
+            </div>
 
+            <div class="field is-horizontal">
+              <div class="field-label is-normal">
+                <label class="label">期限</label>
+              </div>
+              <div class="field-body">
+                <div class="field">
+                  <p class="control is-expanded">
+                    <v-date-picker :formats="datepickerFormats" :popover="popover" v-model="editTaskLimit">
+                      <template v-slot="{ inputValue, inputEvents }">
+                        <input class="input" type="text" :value="inputValue" v-on="inputEvents" placeholder="例：2023/01/10"  />
+                      </template>
+                    </v-date-picker>
+                  </p>
+                </div>
+              </div>
+            </div>
+            
           </div>
         </section>
         <footer class="modal-card-foot">
@@ -169,6 +222,9 @@
     margin: -5px;
     padding:5px;
   }
+  .modal-card{ overflow: visible;}
+  .modal-card-body{ overflow: visible;}
+  .vc-day:has(>.vc-highlights){ pointer-events: none;}
 </style>
 
 <script>
@@ -184,7 +240,6 @@
   import 'he-tree-vue/dist/he-tree-vue.css' // base style
   import { db } from "../main";
   import { doc, addDoc, updateDoc, getDoc, getDocs, query, collection, where, runTransaction} from "firebase/firestore";
-  // import { addDoc, collection} from "firebase/firestore";
 
   export default {
     components: {Tree: Tree.mixPlugins([Check, Draggable])},
@@ -198,6 +253,8 @@
         dragFlag: false,
         addPopup: false,
         addTaskName: '',
+        addTaskLimit: '',
+        addTaskStart: '',
         deletePopup: false,
         deleteId: '',
         deleteTaskName: '',
@@ -205,11 +262,22 @@
         editId: '',
         editTaskName: '',
         editStatus: '',
+        editTaskLimit: '',
+        editTaskStart: '',
         statuses: [
           '未着手',
           '実施中',
           '完了',
         ],
+
+        datepickerFormats: {
+          title: "MMMM YYYY",
+          weekdays: "W",
+          navMonths: "MMM",
+          dayPopover: "WWW, MMM D, YYYY",
+          input: ["YYYY-MM-DD", "YYYY/MM/DD"],
+          data: ["YYYY-MM-DD", "YYYY/MM/DD"]
+        }
       }
     },
     created: async function () {
@@ -237,6 +305,8 @@
             checklist: this.checklist_id,
             $checked: Boolean(doc.data().$checked),
             status: doc.data().status,
+            limit: (doc.data().limit) ? doc.data().limit.toDate() : null,
+            start: (doc.data().start) ? doc.data().start.toDate() : null,
           };
           data.push(node);
         })
@@ -263,6 +333,8 @@
       },
       addPopup: function(){
         this.addTaskName = ""  
+        this.addTaskLimit = ""
+        this.addTaskStart = ""
       },
       deletePopup: function(value){
         if(!value){
@@ -275,11 +347,20 @@
           this.editId = ''
           this.editTaskName = ''
           this.editStatus = ''
+          this.editTaskLimit = ""
+          this.editTaskStart = ""
         }
       },
+      addTaskLimit: function(value){
+        console.log(value);
+      }
 
     },
     methods: {
+      toDate: function(date){
+        if(!date) return '';
+        return date.getFullYear() + '年' + (date.getMonth()+1) + '月' + date.getDate() + '日';
+      },
       /* 
        * ツリーデータ→配列データへの変換処理
        */
@@ -293,6 +374,8 @@
             checklist: this.checklist_id,
             $checked: Boolean(data[i].$checked),
             status: data[i].status,
+            limit: data[i].limit,
+            start: data[i].start,
           };
           nodelist.push(node);
           if('children' in data[i]){
@@ -316,6 +399,8 @@
             children: [],
             $checked: Boolean(data[i].$checked),
             status: data[i].status,
+            limit: data[i].limit,
+            start: data[i].start,
             checklist: this.checklist_id,
           }
           // console.log(node);
@@ -445,6 +530,10 @@
             i = data.length;
           }
         }
+        
+        // 並び順・ステータスの整合性を最高神
+        this.updateOrder();
+        
         // ポップアップ非表示
         this.deletePopup = false;
       },
@@ -467,9 +556,12 @@
             $checked: false,
             status: 0,
             checklist: this.checklist_id,
+            limit: (this.addTaskLimit) ? new Date(this.addTaskLimit.getFullYear(), this.addTaskLimit.getMonth(), this.addTaskLimit.getDate(), 23, 59, 59) : null,
+            start: (this.addTaskStart) ? new Date(this.addTaskStart.getFullYear(), this.addTaskStart.getMonth(), this.addTaskStart.getDate(), 0, 0, 0) : null, 
         };
         // firestore上に追加
         const docRef = await addDoc(collection(db, "tasks"), node);
+        console.log(docRef.id);
         // 追加されたIDを取得
         node.id = docRef.id;
         // 配列の更新
@@ -483,11 +575,13 @@
       /*
        * タスク更新用ポップアップ表示処理
        */
-      editTaskPopup:function(id, text, status){
+      editTaskPopup:function(id, text, status, limit, start){
         this.editPopup = true
         this.editTaskName = text
         this.editId = id
         this.editStatus = status
+        this.editTaskLimit = limit
+        this.editTaskStart = start
       },
       /*
        * タスク更新処理
@@ -498,6 +592,9 @@
           text: this.editTaskName,
           status: this.editStatus,
           $checked: (this.editStatus == 2) ? true : false,
+          limit: (this.editTaskLimit) ? new Date(this.editTaskLimit.getFullYear(), this.editTaskLimit.getMonth(), this.editTaskLimit.getDate(), 23, 59, 59) : null,
+          start: (this.editTaskStart) ? new Date(this.editTaskStart.getFullYear(), this.editTaskStart.getMonth(), this.editTaskStart.getDate(), 0, 0, 0) : null, 
+
         });
 
         const data = this.recursiveCreateNode(this.treeData);
@@ -506,6 +603,8 @@
             data[i].text = this.editTaskName;
             data[i].status = this.editStatus;
             data[i].$checked = (this.editStatus == 2) ? true : false,
+            data[i].limit = (this.editTaskLimit) ? new Date(this.editTaskLimit.getFullYear(), this.editTaskLimit.getMonth(), this.editTaskLimit.getDate(), 23, 59, 59) : null;
+            data[i].start = (this.editTaskStart) ? new Date(this.editTaskStart.getFullYear(), this.editTaskStart.getMonth(), this.editTaskStart.getDate(), 0, 0, 0) : null;
 
             // ループを抜けるためにiを上書き
             i = data.length;
