@@ -2,7 +2,6 @@
   <div class="dashboard">
     <h1 class="title mt-5">ダッシュボード</h1>
 
-    <p>チェックリスト一覧</p>
     <table class="table">
       <thead>
         <tr>
@@ -21,15 +20,6 @@
         </template>
       </tbody>
     </table>
-
-    <button class="button is-primary" @click="createPopup=true">
-      <span class="icon-text">
-        <span class="icon">
-          <fa icon="plus" />
-        </span>
-        <span>新しくチェックリストを作る</span>
-      </span>
-    </button>
 
     <div class="modal is-active" v-if="createPopup">
       <div class="modal-background" @click="createPopup=false"></div>

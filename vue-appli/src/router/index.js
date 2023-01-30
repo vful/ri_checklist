@@ -56,6 +56,20 @@ const routes = [
     component: () => import( '../views/DashboardView.vue')
   },
   {
+    path: '/project',
+    name: 'project',
+    beforeEnter: (to, from, next) => {
+      store.dispatch('isSignedIn')
+      .then(() => {
+        next();
+      })
+      .catch(() => {
+        next('/login');
+      });
+    },
+    component: () => import( '../views/ProjectView.vue')
+  },
+  {
     path: '/checklist/:id',
     name: 'checklist',
     beforeEnter: (to, from, next) => {

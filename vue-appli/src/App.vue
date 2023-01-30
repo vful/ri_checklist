@@ -48,6 +48,14 @@
                 <span>ダッシュボード</span>
               </span>
             </router-link>
+            <router-link class="navbar-item has-text-link" :to="{ name: 'project'}">
+              <span class="icon-text">
+                <span class="icon">
+                  <fa icon="table-columns" />
+                </span>
+                <span>案件一覧</span>
+              </span>
+            </router-link>
           </template>
 
         </div>
