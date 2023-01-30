@@ -1,46 +1,102 @@
 <template>
   <div>
-  
-
-    <button @click="isSignedIn">チェック</button>
-    <button @click="signOut">ログアウト</button>
+    <!-- <button @click="isSignedIn">チェック</button>
+    <button @click="signOut">ログアウト</button> -->
     <template v-if="flag">
-      <h2>ログイン</h2>
-      <table>
-        <tr>
-          <th>メールアドレス</th>
-          <td><input type="email" v-model="email"></td>
-        </tr>
-        <tr>
-          <th>パスワード</th>
-          <td><input type="password" v-model="password"></td>
-        </tr>
-      </table>
+      <h1 class="title mt-5">ログイン</h1>
 
-      <button @click="signIn" class="button is-primary">ログイン</button>
+      <div style="max-width:800px; margin-left:auto; margin-right:auto">
+        <div class="card">
+          <div class="card-content">
+            <div class="field is-horizontal">
+              <div class="field-label is-normal">
+                <label class="label">メールアドレス</label>
+              </div>
+              <div class="field-body">
+                <div class="field">
+                  <p class="control is-expanded">
+                    <input class="input" type="email" v-model="email">
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div class="field is-horizontal">
+              <div class="field-label is-normal">
+                <label class="label">パスワード</label>
+              </div>
+              <div class="field-body">
+                <div class="field">
+                  <p class="control is-expanded">
+                    <input class="input" type="password" v-model="password">
+                  </p>
+                </div>
+              </div>
+            </div>
 
-      <button @click="flag=!flag" class="button">初めての方はこちら</button>
+            <div class="has-text-centered">
+              <button @click="signIn" class="button is-primary">ログイン</button>
+            </div>
+          </div>
+        </div>
+        
+        <p class="has-text-right mt-5">
+          <button @click="flag=!flag" class="button ml-5">初めての方はこちら</button>
+        </p>
+      </div>
     </template>
     <template v-else>
-      <h2>新規登録</h2>
-      <table>
-        <tr>
-          <th>名前</th>
-          <td><input type="text" v-model="name"></td>
-        </tr>
-        <tr>
-          <th>メールアドレス</th>
-          <td><input type="email" v-model="email"></td>
-        </tr>
-        <tr>
-          <th>パスワード</th>
-          <td><input type="password" v-model="password"></td>
-        </tr>
-      </table>  
+      <h1 class="title mt-5">新規登録</h1>
+      
+      <div style="max-width:800px; margin-left:auto; margin-right:auto">
+        <div class="card">
+          <div class="card-content">
+            <div class="field is-horizontal">
+              <div class="field-label is-normal">
+                <label class="label">名前</label>
+              </div>
+              <div class="field-body">
+                <div class="field">
+                  <p class="control is-expanded">
+                    <input class="input" type="text" v-model="name">
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div class="field is-horizontal">
+              <div class="field-label is-normal">
+                <label class="label">メールアドレス</label>
+              </div>
+              <div class="field-body">
+                <div class="field">
+                  <p class="control is-expanded">
+                    <input class="input" type="email" v-model="email">
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div class="field is-horizontal">
+              <div class="field-label is-normal">
+                <label class="label">パスワード</label>
+              </div>
+              <div class="field-body">
+                <div class="field">
+                  <p class="control is-expanded">
+                    <input class="input" type="password" v-model="password">
+                  </p>
+                </div>
+              </div>
+            </div>
 
-      <button @click="signUp" class="button is-primary">新規登録</button>
+            <div class="has-text-centered">
+              <button @click="signUp" class="button is-primary">新規登録</button>
+            </div>
+          </div>
+        </div>
 
-      <button @click="flag=!flag" class="button">登録済みの方はこちら</button>
+        <p class="has-text-right mt-5">
+          <button @click="flag=!flag" class="button ml-5">登録済みの方はこちら</button>
+        </p>
+      </div>
     </template>
 
     <div id="modal" class="modal is-active" v-if="message">
