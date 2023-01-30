@@ -18,19 +18,28 @@
           <th>チェックリスト名</th>
           <th>&nbsp;</th>
           <th>&nbsp;</th>
+          <th>&nbsp;</th>
         </tr>
       </thead>
       <tbody>
         <template v-for="checklist in checklists" :key="checklist.id">
           <tr>
               <td class="is-vcentered">{{checklist.title}}</td>
-              <td class="has-text-centered">
+              <td class="has-text-centered" style="width: 90px">
+                <button class="button" @click="editChecklistPopup(checklist.id, checklist.title)">編集</button>
+              </td>
+              <td class="has-text-centered" style="width: 90px">
                 <router-link :to="{ name: 'checklist', params: {id: checklist.id } }" class="button is-primary">詳細</router-link>
               </td>
-              <td class="has-text-centered">
+              <td class="has-text-centered" style="width: 90px">
                 <button class="button is-danger" @click="deleteChecklistPopup(checklist.id, checklist.title)">削除</button>
               </td>
           </tr>
+        </template>
+        <template v-if="!checklists.length">
+            <tr>
+                <td colspan="4" class="has-text-centered">チェックリストがありません。</td>
+            </tr>
         </template>
       </tbody>
     </table>
@@ -51,7 +60,7 @@
               </div>
               <div class="field-body">
                 <div class="field">
-                  <p class="control is-expanded has-icons-left">
+                  <p class="control is-expanded">
                     <input class="input" type="text" placeholder="チェックリストのタイトル" v-model="title">
                     <span class="icon is-small is-left">
                       <i class="fas fa-user"></i>
@@ -72,33 +81,65 @@
 
     <div class="modal is-active" v-if="deletePopup">
         <div class="modal-background" @click="deletePopup=false"></div>
-        <div class="modal-card">
-          <header class="modal-card-head">
-            <p class="modal-card-title is-size-6">チェックリスト削除確認</p>
-            <button class="delete" aria-label="close" @click="deletePopup=false"></button>
-          </header>
-          <section class="modal-card-body">
-            <div class="content">
-              
-              <div class="field is-horizontal">
-                「{{ deleteChecklistTitle }}」を削除してよろしいですか？<br>
-              </div>
-  
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title is-size-6">チェックリスト削除確認</p>
+          <button class="delete" aria-label="close" @click="deletePopup=false"></button>
+        </header>
+        <section class="modal-card-body">
+          <div class="content">
+            
+            <div class="field is-horizontal">
+              「{{ deleteChecklistTitle }}」を削除してよろしいですか？<br>
             </div>
-          </section>
-          <footer class="modal-card-foot">
-            <button class="button is-danger" @click="deleteChecklist">削除する</button>
-            <button class="button" @click="deletePopup=false">キャンセル</button>
-          </footer>
-        </div>
+
+          </div>
+        </section>
+        <footer class="modal-card-foot">
+          <button class="button is-danger" @click="deleteChecklist">削除する</button>
+          <button class="button" @click="deletePopup=false">キャンセル</button>
+        </footer>
       </div>
+    </div>
     
+    <div class="modal is-active" v-if="editPopup">
+      <div class="modal-background" @click="editPopup=false"></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title is-size-6">チェックリスト編集</p>
+          <button class="delete" aria-label="close" @click="editPopup=false"></button>
+        </header>
+        <section class="modal-card-body">
+          <div class="content">
+            
+            <div class="field is-horizontal">
+              <div class="field-label is-normal">
+                <label class="label">タイトル</label>
+              </div>
+              <div class="field-body">
+                <div class="field">
+                  <p class="control is-expanded">
+                    <input class="input" type="text" placeholder="チェックリスト名" v-model="editChecklistName">
+                  </p>
+                </div>
+                
+              </div>
+            </div>
+            
+          </div>
+        </section>
+        <footer class="modal-card-foot">
+          <button class="button is-primary" @click="editChecklist">編集する</button>
+          <button class="button" @click="editPopup=false">キャンセル</button>
+        </footer>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
   import { db } from "../main";
-  import { doc, collection, addDoc, query, where, getDocs, runTransaction } from "firebase/firestore"; 
+  import { doc, collection, addDoc, updateDoc, query, where, getDocs, runTransaction } from "firebase/firestore"; 
 
   export default {
     data(){
@@ -109,6 +150,9 @@
         deleteChecklistTitle: '',
         deleteId: '',
         deletePopup: false,
+        editPopup: false,
+        editId: '',
+        editChecklistName: '',
       }
     },
     created: async function () {
@@ -182,8 +226,27 @@
             }
             this.deletePopup = false;
         });
-      }
+      },
+      editChecklistPopup:function(id, text){
+        this.editPopup = true
+        this.editChecklistName = text
+        this.editId = id
+      },
+      editChecklist: async function(){
+        const docRef = doc(db, "checklists", this.editId);
+        await updateDoc(docRef, {
+          title: this.editChecklistName
+        });
+        for(let i = 0; i < this.checklists.length; i++){
+          if(this.editId === this.checklists[i].id){
+              // 配列上のデータを削除
+              this.checklists[i].title = this.editChecklistName
+          }
+        }
 
+        // ポップアップ非表示
+        this.editPopup = false;
+      },
     }
     
   }

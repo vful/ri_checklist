@@ -37,11 +37,8 @@
               </div>
               <div class="field-body">
                 <div class="field">
-                  <p class="control is-expanded has-icons-left">
+                  <p class="control is-expanded">
                     <input class="input" type="text" placeholder="チェックリストのタイトル" v-model="title">
-                    <span class="icon is-small is-left">
-                      <i class="fas fa-user"></i>
-                    </span>
                   </p>
                 </div>
               </div>

@@ -15,7 +15,7 @@
       </div>
     </div>
 
-    <p style="text-indent:-1em; padding-left:1em;">・子タスクが存在するタスクのステータスを直接変更することはできません。<br>
+    <p style="text-indent:-1em; padding-left:1em;" class="mb-3">・子タスクが存在するタスクのステータスを直接変更することはできません。<br>
       親タスクを完了させるには、子タスクを全て「完了」にしてください。</p>
 
     <Tree :value="treeData" triggerClass="drag-trigger">
@@ -61,7 +61,7 @@
         </template>
     </Tree>
 
-    <div class="has-text-right">
+    <div class="has-text-right mt-5">
       <button class="button button-primary" @click="dragFlag=true" v-if="!dragFlag">並び替えをする</button>
       <button class="button button-primary" @click="updateOrder" v-if="dragFlag">並び替えを確定する</button>
 

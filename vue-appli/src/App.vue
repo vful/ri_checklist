@@ -10,7 +10,12 @@
     </div>
 
     <nav class="navbar has-background-light">
-      <div class="navbar-menu">
+      <a role="button" class="navbar-burger" v-bind:class="{ 'is-active': isMenuShow }" aria-label="menu" aria-expanded="false" data-target="menu" @click="isMenuShow = !isMenuShow">
+        <span aria-hidden="true"></span>
+        <span aria-hidden="true"></span>
+        <span aria-hidden="true"></span>
+      </a>
+      <div class="navbar-menu" id="menu" v-bind:class="{ 'is-active': isMenuShow }" >
         <div class="navbar-start">
           <router-link class="navbar-item has-text-link" :to="{ name: 'home'}">
             <span class="icon-text">
@@ -122,6 +127,12 @@
 import 'bulma/css/bulma.css'; 
 import 'bulma-checkradio/dist/css/bulma-checkradio.min.css'; 
 export default {
+  data(){
+    return {
+      isMenuShow : false
+    }
+
+  }
 
 };
 </script>
