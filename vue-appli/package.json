@@ -16,6 +16,7 @@
     "bulma-extensions": "^6.2.7",
     "core-js": "^3.8.3",
     "firebase": "^9.14.0",
+    "firebase-tools": "^11.21.0",
     "he-tree-vue": "^3.0.3",
     "v-calendar": "^3.0.0-alpha.8",
     "vue": "^3.2.13",
