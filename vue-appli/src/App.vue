@@ -4,7 +4,7 @@
     <div class="hero is-dark">
       <div class="hero-body">
         <h1 class="title">
-          <router-link class="navbar-item" :to="{ name: 'home'}">チェックリストツール</router-link>
+          <router-link :to="{ name: 'home'}">チェックリストツール</router-link>
         </h1>
       </div>
     </div>
@@ -87,7 +87,7 @@
   <router-view/>
   </main>
 
-  <footer class="footer">
+  <footer class="footer mt-5">
     <div class="content has-text-centered">
       <nav class="level">
         <div class="level-item has-text-centered">
@@ -103,16 +103,6 @@
         <div class="level-item has-text-centered">
           <a href="#">
             免責事項
-          </a>
-        </div>
-        <div class="level-item has-text-centered">
-          <a href="#">
-            採用情報
-          </a>
-        </div>
-        <div class="level-item has-text-centered">
-          <a href="#">
-            お問い合わせ・ヘルプ
           </a>
         </div>
         <div class="level-item has-text-centered">
