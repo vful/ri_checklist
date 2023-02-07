@@ -44,7 +44,7 @@
               <small class="has-text-grey mr-1">
                 <span style="display:inline-block; text-align:right; width:11em;">{{ toDate(node.start) }}</span>
                 <span v-if="node.start || node.limit">〜</span>
-                <span style="display:inline-block; text-align:left; width:11em;">{{ toDate(node.limit) }}</span>
+                <span style="display:inline-block; text-align:left; width:11em;" v-bind:class="{'has-text-danger-dark': (!node.$checked && node.limit && node.limit < now)}">{{ toDate(node.limit) }}</span>
               </small>
               <div v-if="mode == 'status'" class="select">
                 <select v-model="node.status" @change="editTaskStatus(tree, node, path)" v-bind:disabled="node.children.length">

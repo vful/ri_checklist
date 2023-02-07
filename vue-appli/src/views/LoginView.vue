@@ -10,24 +10,24 @@
           <div class="card-content">
             <div class="field is-horizontal">
               <div class="field-label is-normal">
-                <label class="label">メールアドレス</label>
+                <label class="label">メールアドレス<span class="has-text-danger">*</span></label>
               </div>
               <div class="field-body">
                 <div class="field">
                   <p class="control is-expanded">
-                    <input class="input" type="email" v-model="email">
+                    <input class="input" type="email" v-model="email" placeholder="例：test@reinoindex.co.jp">
                   </p>
                 </div>
               </div>
             </div>
             <div class="field is-horizontal">
               <div class="field-label is-normal">
-                <label class="label">パスワード</label>
+                <label class="label">パスワード<span class="has-text-danger">*</span></label>
               </div>
               <div class="field-body">
                 <div class="field">
                   <p class="control is-expanded">
-                    <input class="input" type="password" v-model="password">
+                    <input class="input" type="password" v-model="password" placeholder="6文字以上で入力">
                   </p>
                 </div>
               </div>
@@ -52,36 +52,36 @@
           <div class="card-content">
             <div class="field is-horizontal">
               <div class="field-label is-normal">
-                <label class="label">名前</label>
+                <label class="label">名前<span class="has-text-danger">*</span></label>
               </div>
               <div class="field-body">
                 <div class="field">
                   <p class="control is-expanded">
-                    <input class="input" type="text" v-model="name">
+                    <input class="input" type="text" v-model="name" placeholder="例：テスト太郎（ニックネーム可）">
                   </p>
                 </div>
               </div>
             </div>
             <div class="field is-horizontal">
               <div class="field-label is-normal">
-                <label class="label">メールアドレス</label>
+                <label class="label">メールアドレス<span class="has-text-danger">*</span></label>
               </div>
               <div class="field-body">
                 <div class="field">
                   <p class="control is-expanded">
-                    <input class="input" type="email" v-model="email">
+                    <input class="input" type="email" v-model="email" placeholder="例：test@reinoindex.co.jp">
                   </p>
                 </div>
               </div>
             </div>
             <div class="field is-horizontal">
               <div class="field-label is-normal">
-                <label class="label">パスワード</label>
+                <label class="label">パスワード<span class="has-text-danger">*</span></label>
               </div>
               <div class="field-body">
                 <div class="field">
                   <p class="control is-expanded">
-                    <input class="input" type="password" v-model="password">
+                    <input class="input" type="password" v-model="password" placeholder="6文字以上で入力">
                   </p>
                 </div>
               </div>
