@@ -87,9 +87,9 @@
       </div>
     </div>
 
-    <div class="has-text-right mt-5">
-      <button class="button button-primary" @click="searchFlag=true" v-if="!searchFlag">絞り込み条件をひらく</button>
-      <button class="button button-primary" @click="searchFlag=false" v-if="searchFlag">絞り込み条件をとじる</button>
+    <div class="has-text-right mt-3"  v-if="!dragFlag">
+      <button class="button button-primary" @click="searchFlag=true" v-if="!searchFlag">絞り込みをする</button>
+      <button class="button button-primary" @click="searchFlag=false" v-if="searchFlag">絞り込みをやめる</button>
     </div>
 
     <p style="text-indent:-1em; padding-left:1em;" class="mb-3">・子タスクが存在するタスクのステータスを直接変更することはできません。<br>
@@ -101,7 +101,8 @@
             v-bind:class="{
               'is-completed': (node.$checked),
               'is-current': (!node.$checked && node.start && node.start < now),
-              'is-danger': (!node.$checked && node.limit && node.limit < now)
+              'is-danger': (!node.$checked && node.limit && node.limit < now),
+              'node-hidden': (node.hidden),
             }">
             <div class="level-left">
               <button class="drag-trigger button mr-3" v-if="dragFlag"><fa icon="bars" /></button>
@@ -138,7 +139,7 @@
         </template>
     </Tree>
 
-    <div class="has-text-right mt-5">
+    <div class="has-text-right mt-5" v-if="!searchFlag">
       <button class="button button-primary" @click="dragFlag=true" v-if="!dragFlag">並び替えをする</button>
 
       <button class="button is-primary ml-2" @click="addTaskPopup">新しく項目を追加する</button>
@@ -325,6 +326,13 @@
     color: #cc0f35;
     border-color: #cc0f35;
   }
+  .tree-node:has(>.node-hidden){
+    border: none !important;
+    overflow: hidden;
+    height:0 !important;
+    margin:0 !important;
+    padding:0 !important;
+  }
   .modal-card{ overflow: visible;}
   .modal-card-body{ overflow: visible;}
   .vc-day:has(>.vc-highlights){ pointer-events: none;}
@@ -335,6 +343,7 @@
   .is-checkradio[type=checkbox][disabled]+label::before,
   .is-checkradio[type=checkbox][disabled]+label:after,
   .is-checkradio[type=checkbox][disabled]+label:before{ background: #dbdbdb;}
+  
 </style>
 
 <script>
@@ -483,6 +492,15 @@
       addTaskLimit: function(value){
         console.log(value);
       },
+      searchFlag: function(){
+        this.searchTree();
+        this.searchKeyword = ''
+        this.searchUsers = []
+        this.searchStatuses = []
+        this.searchDateFrom = ''
+        this.searchDateTo = ''
+        
+      },
       searchUsers: function(){
         this.searchTree();
       },
@@ -546,16 +564,64 @@
             limit: data[i].limit,
             start: data[i].start,
             checklist: this.checklist_id,
-            visible: true,
+            hidden: false,
           }
-          // console.log(node);
+
+          // 表示絞り込み処理
+          if(this.searchFlag){
+            // 何かしらの絞り込み条件が設定されている場合のみ実施
+            if(this.searchKeyword || this.searchUsers.length || this.searchStatuses.length || this.searchDateFrom || this.searchDateTo){
+              let keywordHidden = false;
+              let statusHidden = false;
+              let dateFromHidden = false;
+              let dateToHidden = false;
+
+              if(this.searchKeyword){
+                keywordHidden = true;
+                if ( ~node.text.indexOf(this.searchKeyword)) {
+                  keywordHidden = false;
+                }
+              }
+              if(this.searchStatuses.length){
+                statusHidden = true;
+                for(let j = 0; j < this.searchStatuses.length; j ++){
+                  if(node.status === this.searchStatuses[j]){
+                    statusHidden = false;
+                  }
+                }
+              }
+              if(this.searchDateFrom){
+                dateFromHidden = true;
+                let from = new Date(this.searchDateFrom.getFullYear(), this.searchDateFrom.getMonth(), this.searchDateFrom.getDate(), 0, 0, 0)
+                if(from <= node.limit){
+                  dateFromHidden = false;
+                }
+              }
+              if(this.searchDateTo){
+                dateToHidden = true;
+                let to = new Date(this.searchDateTo.getFullYear(), this.searchDateTo.getMonth(), this.searchDateTo.getDate(), 23, 59, 59)
+                if(node.start <= to){
+                  dateToHidden = false;
+                }
+              }
+              node.hidden = !(!keywordHidden && !statusHidden && !dateFromHidden && !dateToHidden);
+            }
+          }
 
           let parent = treelist;
           for(let j = 1; j < data[i].depth; j ++){
+            if(!node.hidden){
+              parent[parent.length-1].hidden = false;
+            }
             parent = parent[parent.length - 1].children;
           }
           parent.push(node);
+          
+          // console.log(parent);
+          // if(node.hidden === false) parent.hidden = false;
         }
+        // 表示絞り込みの整合性処理（子要素が表示されていたら親要素も表示する
+
         return treelist;
       },
       /*
@@ -611,8 +677,11 @@
        * 絞り込み
        */
       searchTree: function(){
-        const tree = this.treeData;
-        console.log(tree);
+        // データを取得
+        const data = this.recursiveCreateNode(this.treeData);
+        // treeの再生成
+        this.treeData = this.createTree(data);
+        this.nodeData = this.recursiveCreateNode(this.treeData);
 
       },
       statusPopup: function(){
