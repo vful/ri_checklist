@@ -15,6 +15,83 @@
       </div>
     </div>
 
+    <div v-if="searchFlag">
+      <div class="message">
+        <div class="message-header">
+          <p>絞り込み</p>
+        </div>
+        <div class="message-body">
+          <div class="field is-horizontal">
+            <div class="field-label is-normal">
+              <label class="label">タスク名</label>
+            </div>
+            <div class="field-body">
+              <div class="field">
+                <p class="control is-expanded">
+                  <input class="input" type="text" placeholder="フリーワード" v-model="searchKeyword">
+                </p>
+              </div>
+            </div>
+          </div>
+          <div class="field is-horizontal">
+            <div class="field-label is-normal pt-0">
+              <label class="label">担当者</label>
+            </div>
+            <div class="field-body">
+              <div class="field">
+                <template v-for="(user, index) in users" v-bind:key="index">
+                  <input class="is-checkradio" :id="'searchUser_' + index" type="checkbox" v-model="searchUsers" name="searchUsers" :value="user.id">
+                  <label :for="'searchUser_' + index">{{ user.name }}</label>
+                </template>
+              </div>
+            </div>
+          </div>
+          <div class="field is-horizontal">
+            <div class="field-label is-normal">
+              <label class="label">日付</label>
+            </div>
+            <div class="field-body">
+              <div class="field is-flex" style="align-items: center;">
+                <div style="max-width:240px;">
+                  <v-date-picker :formats="datepickerFormats" :popover="popover" v-model="searchDateFrom">
+                    <template v-slot="{ inputValue, inputEvents }">
+                      <input class="input" type="text" :value="inputValue" v-on="inputEvents" placeholder="例：2023/01/10"  />
+                    </template>
+                  </v-date-picker>
+                </div>
+                <div class="pl-2 pr-2">〜</div>
+                <div style="max-width:240px;">  
+                  <v-date-picker :formats="datepickerFormats" :popover="popover" v-model="searchDateTo">
+                    <template v-slot="{ inputValue, inputEvents }">
+                      <input class="input" type="text" :value="inputValue" v-on="inputEvents" placeholder="例：2023/01/10"  />
+                    </template>
+                  </v-date-picker>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="field is-horizontal">
+            <div class="field-label is-normal pt-0">
+              <label class="label">ステータス</label>
+            </div>
+            <div class="field-body">
+              <div class="field">
+                <template v-for="(status, index) in statuses" v-bind:key="index">
+                  <input class="is-checkradio" :id="'searchStatus_' + index" type="checkbox" v-model="searchStatuses" name="searchStatuses" :value="index">
+                  <label :for="'searchStatus_' + index">{{ status }}</label>
+                </template>
+              </div>
+            </div>
+          </div>  
+        </div>
+      </div>
+    </div>
+
+    <div class="has-text-right mt-5">
+      <button class="button button-primary" @click="searchFlag=true" v-if="!searchFlag">絞り込み条件をひらく</button>
+      <button class="button button-primary" @click="searchFlag=false" v-if="searchFlag">絞り込み条件をとじる</button>
+    </div>
+
     <p style="text-indent:-1em; padding-left:1em;" class="mb-3">・子タスクが存在するタスクのステータスを直接変更することはできません。<br>
       親タスクを完了させるには、子タスクを全て「完了」にしてください。</p>
 
@@ -63,10 +140,13 @@
 
     <div class="has-text-right mt-5">
       <button class="button button-primary" @click="dragFlag=true" v-if="!dragFlag">並び替えをする</button>
-      <button class="button button-primary" @click="updateOrder" v-if="dragFlag">並び替えを確定する</button>
 
       <button class="button is-primary ml-2" @click="addTaskPopup">新しく項目を追加する</button>
     </div>
+
+    <p class="has-text-centered mt-5" v-if="dragFlag">
+      <button class="button is-info" @click="updateOrder">並び替えを確定する</button>
+    </p>
 
     <div class="modal is-active" v-if="addPopup">
       <div class="modal-background" @click="addPopup=false"></div>
@@ -300,6 +380,13 @@
           '実施中',
           '完了',
         ],
+        users: [],
+        searchFlag: false,
+        searchUsers: [],
+        searchStatuses: [],
+        searchKeyword: '',
+        searchDateFrom: '',
+        searchDateTo: '',
 
         datepickerFormats: {
           title: "MMMM YYYY",
@@ -352,6 +439,17 @@
         this.treeData = this.createTree(data);
         this.nodeData = this.recursiveCreateNode(this.treeData);
       })
+
+      // firestoreからcompanyの一覧を取得する（selectで表示するため）
+      const usersDocSnap = await getDocs(collection(db, "users"));
+      usersDocSnap.forEach((doc) => {
+        const user = {
+          id: doc.id,
+          name: doc.data().name
+        };
+        // selectでloopを回すための変数に追加していく
+        this.users.push(user);
+      });
     },
     watch: {
       // チェックリスト管理 / タスク管理のフラグをDBの保存する
@@ -384,7 +482,22 @@
       },
       addTaskLimit: function(value){
         console.log(value);
-      }
+      },
+      searchUsers: function(){
+        this.searchTree();
+      },
+      searchStatuses: function(){
+        this.searchTree();
+      },
+      searchKeyword: function(){
+        this.searchTree();
+      },
+      searchDateFrom: function(){
+        this.searchTree();
+      },
+      searchDateTo: function(){
+        this.searchTree();
+      },
 
     },
     methods: {
@@ -433,6 +546,7 @@
             limit: data[i].limit,
             start: data[i].start,
             checklist: this.checklist_id,
+            visible: true,
           }
           // console.log(node);
 
@@ -492,6 +606,14 @@
           max_depth --;
         }
         return data;
+      },
+      /*
+       * 絞り込み
+       */
+      searchTree: function(){
+        const tree = this.treeData;
+        console.log(tree);
+
       },
       statusPopup: function(){
       },
