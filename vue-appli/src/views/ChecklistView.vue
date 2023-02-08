@@ -104,7 +104,7 @@
               'is-danger': (!node.$checked && node.limit && node.limit < now),
               'node-hidden': (node.hidden),
             }">
-            <div class="level-left">
+            <div class="level-left" style="width:calc(100% - 46em)">
               <button class="drag-trigger button mr-3" v-if="dragFlag"><fa icon="bars" /></button>
               <div class="">
                 <label class="mr-2 is-size-5" style="cursor:pointer;"  v-if="!dragFlag && mode=='toggle'">
@@ -120,6 +120,7 @@
             </div>
             <div class="level-right">
               <small class="has-text-grey mr-1">
+                <span style="display:inline-block; text-align:right; width:11em;" class="tags" v-html="toUsers(node.users)"></span>
                 <span style="display:inline-block; text-align:right; width:11em;">{{ toDate(node.start) }}</span>
                 <span v-if="node.start || node.limit">〜</span>
                 <span style="display:inline-block; text-align:left; width:11em;" v-bind:class="{'has-text-danger-dark': (!node.$checked && node.limit && node.limit < now)}">{{ toDate(node.limit) }}</span>
@@ -202,6 +203,20 @@
                       </template>
                     </v-date-picker>
                   </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="field is-horizontal">
+              <div class="field-label is-normal pt-0">
+                <label class="label">担当者</label>
+              </div>
+              <div class="field-body">
+                <div class="field">
+                  <template v-for="(user, index) in users" v-bind:key="index">
+                    <input class="is-checkradio" :id="'addTaskUser_' + index" type="checkbox" v-model="addTaskUsers" name="addTaskUsers" :value="user.id">
+                    <label :for="'addTaskUser_' + index" style="margin-right:1em; white-space: nowrap;">{{ user.name }}</label>
+                  </template>
                 </div>
               </div>
             </div>
@@ -358,7 +373,7 @@
   } from 'he-tree-vue'
   import 'he-tree-vue/dist/he-tree-vue.css' // base style
   import { db } from "../main";
-  import { doc, addDoc, updateDoc, getDoc, getDocs, query, collection, where, runTransaction} from "firebase/firestore";
+  import { doc, updateDoc, getDoc, getDocs, query, collection, where, runTransaction} from "firebase/firestore";
 
   export default {
     components: {Tree: Tree.mixPlugins([Check, Draggable])},
@@ -375,6 +390,7 @@
         addTaskName: '',
         addTaskLimit: '',
         addTaskStart: '',
+        addTaskUsers: [],
         deletePopup: false,
         deleteId: '',
         deleteTaskName: '',
@@ -408,6 +424,18 @@
       }
     },
     created: async function () {
+      // ユーザ一覧取得
+      const usersDocSnap = await getDocs(collection(db, "users"));
+      usersDocSnap.forEach((doc) => {
+        const user = {
+          id: doc.id,
+          name: doc.data().name
+        };
+        // selectでloopを回すための変数に追加していく
+        this.users.push(user);
+      });
+
+      // チェックリスト取得
       const docSnap = await getDoc(doc(db, "checklists", this.checklist_id));
 
       // チェックリストが存在しない場合はエラーページへ
@@ -419,11 +447,11 @@
 
       // チェックリストモード
       this.mode = (this.checklist.mode === 'toggle') ? 'toggle' : 'status';
-
+      
       // firestoreからタスク一覧データを取得
-      getDocs(query(collection(db, "tasks"), where("checklist", "==", this.checklist_id))).then(querySnapshot => {
+      await getDocs(query(collection(db, "tasks"), where("checklist", "==", this.checklist_id))).then(async querySnapshot => {
         const data = [];
-        querySnapshot.forEach(doc => {
+        querySnapshot.forEach(async doc => {
           const node = {
             id: doc.id,
             text: doc.data().text,
@@ -434,9 +462,20 @@
             status: doc.data().status,
             limit: (doc.data().limit) ? doc.data().limit.toDate() : null,
             start: (doc.data().start) ? doc.data().start.toDate() : null,
+            users: []
           };
           data.push(node);
         })
+
+        for(let i = 0; i < data.length; i++){
+          await getDocs(query(collection(db, "tasks_users"), where("checklist_id", "==", this.checklist_id), where("task_id", "==", data[i].id))).then(usersQuerySnapShot => {
+            const users = [];
+            usersQuerySnapShot.forEach(async doc => {
+              users.push(doc.data().user_id);
+            })
+            data[i].users = users;
+          });
+        }
 
         // 取得データを並び替え（firestore側でのインデックス設定が動作しないためプログラム上で処理）
         data.sort(function(a,b){
@@ -448,17 +487,6 @@
         this.treeData = this.createTree(data);
         this.nodeData = this.recursiveCreateNode(this.treeData);
       })
-
-      // firestoreからcompanyの一覧を取得する（selectで表示するため）
-      const usersDocSnap = await getDocs(collection(db, "users"));
-      usersDocSnap.forEach((doc) => {
-        const user = {
-          id: doc.id,
-          name: doc.data().name
-        };
-        // selectでloopを回すための変数に追加していく
-        this.users.push(user);
-      });
     },
     watch: {
       // チェックリスト管理 / タスク管理のフラグをDBの保存する
@@ -473,6 +501,7 @@
         this.addTaskName = ""  
         this.addTaskLimit = ""
         this.addTaskStart = ""
+        this.addTaskUsers = []
       },
       deletePopup: function(value){
         if(!value){
@@ -519,6 +548,18 @@
 
     },
     methods: {
+      toUsers: function(users){
+        let str = "";
+        for(let i = 0; i < users.length; i ++){
+          for(let j = 0; j < this.users.length; j ++){
+            if(this.users[j].id === users[i]){
+              str += '<span class="tag is-light is-rounded">' + this.users[j].name + '</span>';
+              j = this.users.length;
+            }
+          }
+        }
+        return str;
+      },
       toDate: function(date){
         if(!date) return '';
         return date.getFullYear() + '年' + (date.getMonth()+1) + '月' + date.getDate() + '日';
@@ -538,6 +579,7 @@
             status: data[i].status,
             limit: data[i].limit,
             start: data[i].start,
+            users: data[i].users,
           };
           nodelist.push(node);
           if('children' in data[i]){
@@ -552,7 +594,6 @@
       createTree: function(data){
         const treelist = [];
         for(let i = 0; i < data.length; i ++){
-          // console.log(data[i]);
           const node = {
             id: data[i].id, 
             text: data[i].text + "",
@@ -563,6 +604,7 @@
             status: data[i].status,
             limit: data[i].limit,
             start: data[i].start,
+            users: data[i].users,
             checklist: this.checklist_id,
             hidden: false,
           }
@@ -572,6 +614,7 @@
             // 何かしらの絞り込み条件が設定されている場合のみ実施
             if(this.searchKeyword || this.searchUsers.length || this.searchStatuses.length || this.searchDateFrom || this.searchDateTo){
               let keywordHidden = false;
+              let userHidden = false;
               let statusHidden = false;
               let dateFromHidden = false;
               let dateToHidden = false;
@@ -582,11 +625,13 @@
                   keywordHidden = false;
                 }
               }
-              if(this.searchStatuses.length){
-                statusHidden = true;
-                for(let j = 0; j < this.searchStatuses.length; j ++){
-                  if(node.status === this.searchStatuses[j]){
-                    statusHidden = false;
+              if(this.searchUsers.length){
+                userHidden = true;
+                for(let j = 0; j < this.searchUsers.length; j ++){
+                  for(let k = 0; k < node.users.length; k ++){
+                    if(this.searchUsers[j] === node.users[k]){
+                      userHidden = false;
+                    }
                   }
                 }
               }
@@ -604,7 +649,15 @@
                   dateToHidden = false;
                 }
               }
-              node.hidden = !(!keywordHidden && !statusHidden && !dateFromHidden && !dateToHidden);
+              if(this.searchStatuses.length){
+                statusHidden = true;
+                for(let j = 0; j < this.searchStatuses.length; j ++){
+                  if(node.status === this.searchStatuses[j]){
+                    statusHidden = false;
+                  }
+                }
+              }
+              node.hidden = !(!keywordHidden && !userHidden&& !statusHidden && !dateFromHidden && !dateToHidden);
             }
           }
 
@@ -616,9 +669,6 @@
             parent = parent[parent.length - 1].children;
           }
           parent.push(node);
-          
-          // console.log(parent);
-          // if(node.hidden === false) parent.hidden = false;
         }
         // 表示絞り込みの整合性処理（子要素が表示されていたら親要素も表示する
 
@@ -718,6 +768,17 @@
                 j = data.length;
               }
             }
+
+            // 削除ノードの作業者情報を取得
+            const deleteTasksUsers = [];
+            for(let j=0; j<deleteNode.length; j++){
+              await getDocs(query(collection(db, "tasks_users"), where("checklist_id", "==", this.checklist_id), where('task_id', "==", deleteNode[j].id))).then(querySnapshot => {
+                querySnapshot.forEach(doc => {
+                  deleteTasksUsers.push(doc.id);
+                })
+              })
+            }
+            
             try {
               // Firestore上からデータを削除
               let transactionCount = 0;
@@ -725,6 +786,14 @@
                 for(let j = 0; j < deleteNode.length; j++){
                   const docRef = doc(db, "tasks", deleteNode[j].id);
                   transaction.delete(docRef);
+                  // console.log(docRef, transaction);
+                  transactionCount ++;
+                }
+                for(let j = 0; j < deleteTasksUsers.length; j++){
+                  console.log(deleteTasksUsers[j]);
+                  const docRef = doc(db, "tasks_users", deleteTasksUsers[j]);
+                  transaction.delete(docRef);
+                  // console.log(docRef, transaction);
                   transactionCount ++;
                 }
               });
@@ -781,18 +850,51 @@
             limit: (this.addTaskLimit) ? new Date(this.addTaskLimit.getFullYear(), this.addTaskLimit.getMonth(), this.addTaskLimit.getDate(), 23, 59, 59) : null,
             start: (this.addTaskStart) ? new Date(this.addTaskStart.getFullYear(), this.addTaskStart.getMonth(), this.addTaskStart.getDate(), 0, 0, 0) : null, 
         };
-        // firestore上に追加
-        const docRef = await addDoc(collection(db, "tasks"), node);
-        console.log(docRef.id);
-        // 追加されたIDを取得
-        node.id = docRef.id;
-        // 配列の更新
-        data.push(node);
-        // treeの再生成
-        this.treeData = this.createTree(data);
-        this.nodeData = this.recursiveCreateNode(this.treeData);
-        // ポップアップ非表示
-        this.addPopup = false;
+        
+        try {
+          const autoId = () => {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+            let autoId = ''
+            for (let i = 0; i < 20; i++) {
+              autoId += chars.charAt(Math.floor(Math.random() * chars.length))
+            }
+            return autoId
+          }
+          const node_id = autoId();
+
+          const users = [];
+          // firestore上に追加
+          await runTransaction(db, async (transaction) => {
+            
+            transaction.set(doc(collection(db, "tasks"), node_id), node);
+            for(let i = 0; i < this.addTaskUsers.length; i++){
+              const task_user = {
+                checklist_id: this.checklist_id,
+                task_id: node_id,
+                user_id: this.addTaskUsers[i]
+              }
+              transaction.set(doc(collection(db, "tasks_users")), task_user);
+              users.push(task_user.user_id);
+            }
+          });
+          node.id = node_id;
+          node.users = users;
+
+          // 配列の更新
+          data.push(node);
+          // treeの再生成
+          this.treeData = this.createTree(data);
+          this.nodeData = this.recursiveCreateNode(this.treeData);
+          // ポップアップ非表示
+          this.addPopup = false;
+        } catch (error) {
+          console.log('Transaction failure!');
+          console.log(error);
+          const errorCode = error.code;
+          const errorMessage = error.message;
+          console.log(errorCode);
+          console.log(errorMessage);
+        }
       },
       /*
        * タスク更新用ポップアップ表示処理
