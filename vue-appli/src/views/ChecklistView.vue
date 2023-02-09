@@ -132,7 +132,7 @@
                   </option>
                 </select>
               </div>
-              <button class="button level-right ml-1" @click="editTaskPopup(node.id, node.text, node.status, node.limit, node.start)">編集</button>
+              <button class="button level-right ml-1" @click="editTaskPopup(node)">編集</button>
               <button class="button is-danger level-right ml-1" @click="deleteTaskPopup(node.id, node.text)">削除</button>
             </div>
           </div>
@@ -309,6 +309,20 @@
                 </div>
               </div>
             </div>
+
+            <div class="field is-horizontal">
+              <div class="field-label is-normal pt-0">
+                <label class="label">担当者</label>
+              </div>
+              <div class="field-body">
+                <div class="field">
+                  <template v-for="(user, index) in users" v-bind:key="index">
+                    <input class="is-checkradio" :id="'editTaskUser_' + index" type="checkbox" v-model="editTaskUsers" name="editTaskUsers" :value="user.id">
+                    <label :for="'editTaskUser_' + index" style="margin-right:1em; white-space: nowrap;">{{ user.name }}</label>
+                  </template>
+                </div>
+              </div>
+            </div>
             
           </div>
         </section>
@@ -400,6 +414,7 @@
         editStatus: '',
         editTaskLimit: '',
         editTaskStart: '',
+        editTaskUsers: [],
         statuses: [
           '未着手',
           '実施中',
@@ -471,7 +486,11 @@
           await getDocs(query(collection(db, "tasks_users"), where("checklist_id", "==", this.checklist_id), where("task_id", "==", data[i].id))).then(usersQuerySnapShot => {
             const users = [];
             usersQuerySnapShot.forEach(async doc => {
-              users.push(doc.data().user_id);
+              const user = {
+                id: doc.id,
+                ...doc.data()
+              }
+              users.push(user);
             })
             data[i].users = users;
           });
@@ -479,7 +498,7 @@
 
         // 取得データを並び替え（firestore側でのインデックス設定が動作しないためプログラム上で処理）
         data.sort(function(a,b){
-            if(a.order<b.order) return -1;
+            if(a.order < b.order) return -1;
             if(a.order > b.order) return 1;
             return 0;
         });
@@ -516,6 +535,7 @@
           this.editStatus = ''
           this.editTaskLimit = ""
           this.editTaskStart = ""
+          this.editTaskUsers = []
         }
       },
       addTaskLimit: function(value){
@@ -552,7 +572,7 @@
         let str = "";
         for(let i = 0; i < users.length; i ++){
           for(let j = 0; j < this.users.length; j ++){
-            if(this.users[j].id === users[i]){
+            if(this.users[j].id === users[i].user_id){
               str += '<span class="tag is-light is-rounded">' + this.users[j].name + '</span>';
               j = this.users.length;
             }
@@ -629,7 +649,7 @@
                 userHidden = true;
                 for(let j = 0; j < this.searchUsers.length; j ++){
                   for(let k = 0; k < node.users.length; k ++){
-                    if(this.searchUsers[j] === node.users[k]){
+                    if(this.searchUsers[j] === node.users[k].user_id){
                       userHidden = false;
                     }
                   }
@@ -769,16 +789,6 @@
               }
             }
 
-            // 削除ノードの作業者情報を取得
-            const deleteTasksUsers = [];
-            for(let j=0; j<deleteNode.length; j++){
-              await getDocs(query(collection(db, "tasks_users"), where("checklist_id", "==", this.checklist_id), where('task_id', "==", deleteNode[j].id))).then(querySnapshot => {
-                querySnapshot.forEach(doc => {
-                  deleteTasksUsers.push(doc.id);
-                })
-              })
-            }
-            
             try {
               // Firestore上からデータを削除
               let transactionCount = 0;
@@ -786,14 +796,10 @@
                 for(let j = 0; j < deleteNode.length; j++){
                   const docRef = doc(db, "tasks", deleteNode[j].id);
                   transaction.delete(docRef);
-                  // console.log(docRef, transaction);
-                  transactionCount ++;
-                }
-                for(let j = 0; j < deleteTasksUsers.length; j++){
-                  console.log(deleteTasksUsers[j]);
-                  const docRef = doc(db, "tasks_users", deleteTasksUsers[j]);
-                  transaction.delete(docRef);
-                  // console.log(docRef, transaction);
+                  for(let k = 0; k < deleteNode[j].users.length; k++){
+                    const docRef = doc(db, "tasks_users", deleteNode[j].users[k].id);
+                    transaction.delete(docRef);
+                  }
                   transactionCount ++;
                 }
               });
@@ -862,10 +868,8 @@
           }
           const node_id = autoId();
 
-          const users = [];
           // firestore上に追加
           await runTransaction(db, async (transaction) => {
-            
             transaction.set(doc(collection(db, "tasks"), node_id), node);
             for(let i = 0; i < this.addTaskUsers.length; i++){
               const task_user = {
@@ -874,11 +878,22 @@
                 user_id: this.addTaskUsers[i]
               }
               transaction.set(doc(collection(db, "tasks_users")), task_user);
-              users.push(task_user.user_id);
             }
           });
+
+          // 登録後のユーザ情報をもってくる（transaction内ではIDが取得できないため）
+          await getDocs(query(collection(db, "tasks_users"), where("checklist_id", "==", this.checklist_id), where("task_id", "==", node_id))).then(usersQuerySnapShot => {
+            const users = [];
+            usersQuerySnapShot.forEach(async doc => {
+              const user = {
+                id: doc.id,
+                ...doc.data()
+              }
+              users.push(user);
+            })
+            node.users = users;
+          });
           node.id = node_id;
-          node.users = users;
 
           // 配列の更新
           data.push(node);
@@ -899,18 +914,25 @@
       /*
        * タスク更新用ポップアップ表示処理
        */
-      editTaskPopup:function(id, text, status, limit, start){
+      editTaskPopup:function(node){
         this.editPopup = true
-        this.editTaskName = text
-        this.editId = id
-        this.editStatus = status
-        this.editTaskLimit = limit
-        this.editTaskStart = start
+        this.editTaskName = node.text
+        this.editId = node.id
+        this.editStatus = node.status
+        this.editTaskLimit = node.limit
+        this.editTaskStart = node.start
+
+        const users = [];
+        for(let i = 0; i < node.users.length; i ++){
+          users.push(node.users[i].user_id);
+        }
+        this.editTaskUsers = users
       },
       /*
        * タスク更新処理
        */
       editTask: async function(){
+        // firabaseの内容を更新
         const docRef = doc(db, "tasks", this.editId);
         await updateDoc(docRef, {
           text: this.editTaskName,
@@ -918,9 +940,9 @@
           $checked: (this.editStatus == 2) ? true : false,
           limit: (this.editTaskLimit) ? new Date(this.editTaskLimit.getFullYear(), this.editTaskLimit.getMonth(), this.editTaskLimit.getDate(), 23, 59, 59) : null,
           start: (this.editTaskStart) ? new Date(this.editTaskStart.getFullYear(), this.editTaskStart.getMonth(), this.editTaskStart.getDate(), 0, 0, 0) : null, 
-
         });
 
+        // 画面表示用配列の更新
         const data = this.recursiveCreateNode(this.treeData);
         for(let i = 0; i < data.length; i ++){
           if(data[i].id === this.editId){
@@ -929,6 +951,58 @@
             data[i].$checked = (this.editStatus == 2) ? true : false,
             data[i].limit = (this.editTaskLimit) ? new Date(this.editTaskLimit.getFullYear(), this.editTaskLimit.getMonth(), this.editTaskLimit.getDate(), 23, 59, 59) : null;
             data[i].start = (this.editTaskStart) ? new Date(this.editTaskStart.getFullYear(), this.editTaskStart.getMonth(), this.editTaskStart.getDate(), 0, 0, 0) : null;
+
+            const addUsers = this.editTaskUsers.concat();
+            const deleteUsers = data[i].users.concat();
+
+            for(let j = 0; j < this.editTaskUsers.length; j ++){
+              // 追加する配列
+              for(let k = 0; k < data[i].users.length; k++){
+                if(data[i].users[k].user_id === this.editTaskUsers[j]){
+                  addUsers[j] = null;
+                  console.log(addUsers);
+                }
+              }
+              // 削除する配列
+              for(let k = 0; k < deleteUsers.length; k++){
+                if(deleteUsers[k] && deleteUsers[k].user_id === this.editTaskUsers[j]){
+                  deleteUsers[k] = null;
+                }
+              }
+            }
+
+            // firestore上に追加
+            await runTransaction(db, async (transaction) => {
+              for(let j = 0; j < addUsers.length; j ++){
+                if(addUsers[j]){
+                  const task_user = {
+                    checklist_id: this.checklist_id,
+                    task_id: this.editId,
+                    user_id: addUsers[j]
+                  }
+                  transaction.set(doc(collection(db, "tasks_users")), task_user);
+                }
+              }
+              for(let j = 0; j < deleteUsers.length; j ++){
+                if(deleteUsers[j]){
+                  const docRef = doc(db, "tasks_users", deleteUsers[j].id);
+                  transaction.delete(docRef);
+                }
+              }
+            });
+
+            // 登録後のユーザ情報をもってくる（transaction内ではIDが取得できないため）
+            await getDocs(query(collection(db, "tasks_users"), where("checklist_id", "==", this.checklist_id), where("task_id", "==", this.editId))).then(usersQuerySnapShot => {
+              const users = [];
+              usersQuerySnapShot.forEach(async doc => {
+                const user = {
+                  id: doc.id,
+                  ...doc.data()
+                }
+                users.push(user);
+              })
+              data[i].users = users;
+            });
 
             // ループを抜けるためにiを上書き
             i = data.length;
@@ -992,7 +1066,6 @@
         
         try {
           let transactionCount = 0;
-          // 一時的にコメントアウト、開発おわったらイキに
           await runTransaction(db, async (transaction) => {
             for(let i = 0; i < data.length; i++){
               // Object同士の比較が難しいのでJSONに変換して比較

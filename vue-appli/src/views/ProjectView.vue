@@ -26,7 +26,7 @@
           <tr>
               <td class="is-vcentered">{{checklist.title}}</td>
               <td class="has-text-centered" style="width: 90px">
-                <button class="button" @click="editChecklistPopup(checklist.id, checklist.title)">編集</button>
+                <button class="button" @click="editChecklistPopup(checklist.id, checklist.title)">タスク名編集</button>
               </td>
               <td class="has-text-centered" style="width: 90px">
                 <router-link :to="{ name: 'checklist', params: {id: checklist.id } }" class="button is-primary">詳細</router-link>
@@ -192,7 +192,17 @@
       },
       deleteChecklist: async function(){
         const tasks = [];
-        getDocs(query(collection(db, "tasks"), where("checklist", "==", this.deleteId))).then(querySnapshot => {
+        const tasks_users = [];
+        await getDocs(query(collection(db, "tasks_users"), where("checklist_id", "==", this.deleteId))).then(usersQuerySnapShot => {
+          usersQuerySnapShot.forEach(async doc => {
+            const user = {
+              id: doc.id,
+              ...doc.data()
+            }
+            tasks_users.push(user);
+          })
+        });
+        await getDocs(query(collection(db, "tasks"), where("checklist", "==", this.deleteId))).then(querySnapshot => {
             querySnapshot.forEach(doc => {
                 tasks.push(doc.id);
             })
@@ -203,6 +213,11 @@
               runTransaction(db, async (transaction) => {
                 for(let j = 0; j < tasks.length; j++){
                   const docRef = doc(db, "tasks", tasks[j]);
+                  transaction.delete(docRef);
+                  transactionCount ++;
+                }
+                for(let j = 0; j < tasks_users.length; j++){
+                  const docRef = doc(db, "tasks_users", tasks_users[j].id);
                   transaction.delete(docRef);
                   transactionCount ++;
                 }
