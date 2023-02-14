@@ -23,7 +23,7 @@
         <div class="message-body">
           <div class="field is-horizontal">
             <div class="field-label is-normal">
-              <label class="label">タスク名</label>
+              <label class="label">タスク名、詳細</label>
             </div>
             <div class="field-body">
               <div class="field">
@@ -104,27 +104,28 @@
               'is-danger': (!node.$checked && node.limit && node.limit < now),
               'node-hidden': (node.hidden),
             }">
-            <div class="level-left" style="width:calc(100% - 46em)">
+            <div class="level-left" style="flex:1">
               <button class="drag-trigger button mr-3" v-if="dragFlag"><fa icon="bars" /></button>
-              <div class="">
-                <label class="mr-2 is-size-5" style="cursor:pointer;"  v-if="!dragFlag && mode=='toggle'">
-                <!-- <label class="mr-2 is-size-5" style="cursor:pointer;"> -->
+              <div class="is-flex">
+                <label class="is-size-5" style="cursor:pointer;"  v-if="!dragFlag && mode=='toggle'">
                   <input v-bind:class="{'is-checkradio':true, 'has-background-color':node.$checked, 'is-success':node.$checked}" type="checkbox" v-bind:id="node.id" :checked="node.$checked" @change="editCheckbox(tree, node, path)" v-bind:disabled="node.children.length" />
                   <label v-bind:for="node.id"></label>
                 </label>
-                <b style="display:none;">{{index}}</b>
-                <!-- <button class="button is-text" @click="statusPopup">{{node.text}}</button> -->
-                {{node.text}}
-                <span style="display:none;">- path: <i>{{path.join(',')}}</i></span>
+                <div style="flex:1">
+                  <b style="display:none;">{{index}}</b>
+                  <p>{{node.text}}</p>
+                  <p class="is-size-7"><AutoLink :text="node.detail"></AutoLink></p>
+                  <span style="display:none;">- path: <i>{{path.join(',')}}</i></span>
+                </div>
               </div>
             </div>
-            <div class="level-right">
-              <small class="has-text-grey mr-1">
-                <span style="display:inline-block; text-align:right; width:11em;" class="tags" v-html="toUsers(node.users)"></span>
-                <span style="display:inline-block; text-align:right; width:11em;">{{ toDate(node.start) }}</span>
-                <span v-if="node.start || node.limit">〜</span>
-                <span style="display:inline-block; text-align:left; width:11em;" v-bind:class="{'has-text-danger-dark': (!node.$checked && node.limit && node.limit < now)}">{{ toDate(node.limit) }}</span>
-              </small>
+            <div class="level-right" style="width:30em;">
+              <div style="display:inline-block; text-align:right; width:10em;" class="tags mb-0" v-html="toUsers(node.users)"></div>
+              <div class="has-text-gray is-size-7">
+                <span style="display:block; text-align:center; width:11em;">{{ toDate(node.start) }}</span>
+                <span style="display:block; line-height:1; text-align:center; transform:rotate(90deg)" v-if="node.start || node.limit">〜</span>
+                <span style="display:block; text-align:center; width:11em;" v-bind:class="{'has-text-danger-dark': (!node.$checked && node.limit && node.limit < now)}">{{ toDate(node.limit) }}</span>
+              </div>
               <div v-if="mode == 'status'" class="select">
                 <select v-model="node.status" @change="editTaskStatus(tree, node, path)" v-bind:disabled="node.children.length">
                   <option v-for="(status, index) in statuses" v-bind:value="index" v-bind:key="index" :checked="index == node.status">
@@ -168,6 +169,19 @@
                 <div class="field">
                   <p class="control is-expanded">
                     <input class="input" type="text" placeholder="タスク名" v-model="addTaskName">
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="field is-horizontal">
+              <div class="field-label is-normal">
+                <label class="label">タスク詳細</label>
+              </div>
+              <div class="field-body">
+                <div class="field">
+                  <p class="control is-expanded">
+                    <textarea class="input" v-model="addTaskDetail" style="min-height:100px;"></textarea>
                   </p>
                 </div>
               </div>
@@ -272,7 +286,19 @@
                     <input class="input" type="text" placeholder="タスク名" v-model="editTaskName">
                   </p>
                 </div>
-                
+              </div>
+            </div>
+
+            <div class="field is-horizontal">
+              <div class="field-label is-normal">
+                <label class="label">タスク詳細</label>
+              </div>
+              <div class="field-body">
+                <div class="field">
+                  <p class="control is-expanded">
+                    <textarea class="input" v-model="editTaskDetail" style="min-height:100px;"></textarea>
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -389,8 +415,9 @@
   import { db } from "../main";
   import { doc, updateDoc, getDoc, getDocs, query, collection, where, runTransaction} from "firebase/firestore";
 
+  import AutoLink from '@/components/AutoLink.vue'
   export default {
-    components: {Tree: Tree.mixPlugins([Check, Draggable])},
+    components: {Tree: Tree.mixPlugins([Check, Draggable]), AutoLink},
     data(){
       return {
         now: new Date(),
@@ -402,6 +429,7 @@
         dragFlag: false,
         addPopup: false,
         addTaskName: '',
+        addTaskDetail: '',
         addTaskLimit: '',
         addTaskStart: '',
         addTaskUsers: [],
@@ -411,6 +439,7 @@
         editPopup: false,
         editId: '',
         editTaskName: '',
+        editTaskDetail: '',
         editStatus: '',
         editTaskLimit: '',
         editTaskStart: '',
@@ -470,6 +499,7 @@
           const node = {
             id: doc.id,
             text: doc.data().text,
+            detail: (doc.data().detail) ? doc.data().detail : '',
             depth: doc.data().depth,
             order: doc.data().order,
             checklist: this.checklist_id,
@@ -592,6 +622,7 @@
           const node = {
             id: data[i].id,
             text: data[i].text,
+            detail: data[i].detail,
             depth: depth,
             order: nodelist.length,
             checklist: this.checklist_id,
@@ -617,6 +648,7 @@
           const node = {
             id: data[i].id, 
             text: data[i].text + "",
+            detail: data[i].detail + "",
             depth: data[i].depth,
             order: data[i].order,
             children: [],
@@ -641,7 +673,7 @@
 
               if(this.searchKeyword){
                 keywordHidden = true;
-                if ( ~node.text.indexOf(this.searchKeyword)) {
+                if ( ~node.text.indexOf(this.searchKeyword) || ~node.detail.indexOf(this.searchKeyword)) {
                   keywordHidden = false;
                 }
               }
@@ -847,6 +879,7 @@
         const data = this.recursiveCreateNode(this.treeData);
         const node = {
             text: this.addTaskName,
+            detail: this.addTaskDetail,
             depth: 1,
             order: data.length,
             children: [],
@@ -917,6 +950,7 @@
       editTaskPopup:function(node){
         this.editPopup = true
         this.editTaskName = node.text
+        this.editTaskDetail = node.detail
         this.editId = node.id
         this.editStatus = node.status
         this.editTaskLimit = node.limit
@@ -936,6 +970,7 @@
         const docRef = doc(db, "tasks", this.editId);
         await updateDoc(docRef, {
           text: this.editTaskName,
+          detail: this.editTaskDetail,
           status: this.editStatus,
           $checked: (this.editStatus == 2) ? true : false,
           limit: (this.editTaskLimit) ? new Date(this.editTaskLimit.getFullYear(), this.editTaskLimit.getMonth(), this.editTaskLimit.getDate(), 23, 59, 59) : null,
@@ -947,6 +982,7 @@
         for(let i = 0; i < data.length; i ++){
           if(data[i].id === this.editId){
             data[i].text = this.editTaskName;
+            data[i].detail = this.editTaskDetail;
             data[i].status = this.editStatus;
             data[i].$checked = (this.editStatus == 2) ? true : false,
             data[i].limit = (this.editTaskLimit) ? new Date(this.editTaskLimit.getFullYear(), this.editTaskLimit.getMonth(), this.editTaskLimit.getDate(), 23, 59, 59) : null;
