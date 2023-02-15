@@ -148,7 +148,8 @@
     </div>
 
     <p class="has-text-centered mt-5" v-if="dragFlag">
-      <button class="button is-info" @click="updateOrder">並び替えを確定する</button>
+      <button class="button mr-2" @click="cancelOrder">並び替えをキャンセルする</button>
+      <button class="button ml-2 is-info" @click="updateOrder">並び替えを確定する</button>
     </p>
 
     <div class="modal is-active" v-if="addPopup">
@@ -1127,6 +1128,11 @@
           console.log(errorCode);
           console.log(errorMessage);
         }
+      },
+      cancelOrder: async function(){
+        this.dragFlag = false;
+        this.treeData = this.createTree(this.nodeData);
+
       },
       /*
        * 並び替え保存処理
