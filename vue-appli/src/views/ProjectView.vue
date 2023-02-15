@@ -157,14 +157,22 @@
       }
     },
     created: async function () {
-      getDocs(query(collection(db, "checklists"), where("user", "==", this.$store.getters.user.uid))).then(querySnapshot => {
+      const checklist_ids = [];
+      await getDocs(query(collection(db, "tasks_users"), where("user_id", "==", this.$store.getters.user.uid))).then(querySnapshot => {
+        querySnapshot.forEach(doc => {
+          checklist_ids[doc.data().checklist_id] = true;
+        });
+      });
+      
+      await getDocs(collection(db, "checklists")).then(querySnapshot => {
         querySnapshot.forEach(doc => {
           const checklist = {
             id: doc.id,
-            title: doc.data().title
+            ...doc.data()
           }
-          console.log(checklist);
-          this.checklists.push(checklist);
+          if(checklist.user === this.$store.getters.user.uid || checklist_ids[checklist.id] === true){
+            this.checklists.push(checklist);
+          }
         })
       })
     },
@@ -208,7 +216,6 @@
             })
             try {
               // Firestore上からデータを削除
-              console.log(tasks);
               let transactionCount = 0;
               runTransaction(db, async (transaction) => {
                 for(let j = 0; j < tasks.length; j++){
