@@ -1129,10 +1129,12 @@
           console.log(errorMessage);
         }
       },
+      /*
+       * 並び替えキャンセル処理
+       */
       cancelOrder: async function(){
-        this.dragFlag = false;
         this.treeData = this.createTree(this.nodeData);
-
+        this.dragFlag = false;
       },
       /*
        * 並び替え保存処理
