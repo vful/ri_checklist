@@ -20,6 +20,11 @@ const i18n = new createI18n({
 })
 // 日本語化対応 ここまで
 
+// カレンダー ここから
+import VCalendar from 'v-calendar';
+import 'v-calendar/dist/style.css';
+// カレンダー ここまで
+
 // ----------------------------------------------------------------------------------------
 // ここから下のサンプルコードを削除し、Firebaseで発行されたSDKのソースコードを貼り付けてください
 // ----------------------------------------------------------------------------------------
@@ -45,7 +50,5 @@ const app = initializeApp(firebaseConfig);
 // ----------------------------------------------------------------------------------------
 export const db = getFirestore(app);
 
-const app2 = createApp(App).use(i18n).use(store).use(router).component('fa', FontAwesomeIcon );
+const app2 = createApp(App).use(i18n).use(store).use(router).use(VCalendar, {}).component('fa', FontAwesomeIcon );
 app2.mount('#app')
-
-
